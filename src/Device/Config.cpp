@@ -51,6 +51,7 @@ DeviceConfig::IsAvailable() const noexcept
   case PortType::UDP_LISTENER:
   case PortType::SPECTATE_FILE:
   case PortType::SAFESKY_GDL90:
+  case PortType::OGN_APRS:
     return true;
 
   case PortType::PTY:
@@ -99,6 +100,11 @@ DeviceConfig::ShouldReopenOnTimeout() const noexcept
   case PortType::SAFESKY_GDL90:
     /* local file polling; reopening does not help */
     return false;
+
+  case PortType::OGN_APRS:
+    /* the APRS-IS server sends a comment at least every 20 seconds;
+       a silent connection is dead */
+    return true;
 
   case PortType::PTY:
   case PortType::GLIDER_LINK:
@@ -316,6 +322,10 @@ DeviceConfig::GetPortName(char *buffer, size_t max_size) const noexcept
 
   case PortType::SAFESKY_GDL90:
     StringFormat(buffer, max_size, "SafeSky GDL90 UDP %u", tcp_port);
+    return buffer;
+
+  case PortType::OGN_APRS:
+    StringFormat(buffer, max_size, "OGN %s:%u", OGN_APRS_HOST, OGN_APRS_PORT);
     return buffer;
   }
 

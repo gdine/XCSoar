@@ -104,6 +104,13 @@ GDL90_SOURCES = \
 	$(DRIVER_SRC_DIR)/GDL90/SafeSky.cpp \
 	$(DRIVER_SRC_DIR)/GDL90/Register.cpp
 
+OGN_SOURCES = \
+	$(DRIVER_SRC_DIR)/OGN/Aprs.cpp \
+	$(DRIVER_SRC_DIR)/OGN/Traffic.cpp \
+	$(DRIVER_SRC_DIR)/OGN/Settings.cpp \
+	$(DRIVER_SRC_DIR)/OGN/Device.cpp \
+	$(DRIVER_SRC_DIR)/OGN/Register.cpp
+
 DRIVER_SOURCES = \
 	$(SRC)/Device/Driver.cpp \
 	$(SRC)/Device/Register.cpp \
@@ -120,6 +127,7 @@ DRIVER_SOURCES = \
 	$(THERMALEXPRESS_SOURCES) \
 	$(STRATUX_SOURCES) \
 	$(GDL90_SOURCES) \
+	$(OGN_SOURCES) \
 	$(DRIVER_SRC_DIR)/AltairPro.cpp \
 	$(DRIVER_SRC_DIR)/BorgeltB50.cpp \
 	$(DRIVER_SRC_DIR)/XCVario.cpp \

@@ -378,6 +378,10 @@ constexpr std::string_view GDL90UseSystemUtcDate = "GDL90UseSystemUtcDate";
 
 constexpr std::string_view SafeSkyHorizontalRange = "SafeSkyHorizontalRange";
 constexpr std::string_view SafeSkyVerticalRange = "SafeSkyVerticalRange";
+constexpr std::string_view OGNGliderRange = "OGNGliderRange";
+constexpr std::string_view OGNOtherRange = "OGNOtherRange";
+constexpr std::string_view OGNVerticalRange = "OGNVerticalRange";
+constexpr std::string_view OGNIgnoreSafeSky = "OGNIgnoreSafeSky";
 
 constexpr std::string_view HideQuickGuideDialogOnStartup =
   "HideQuickGuideDialogOnStartup";

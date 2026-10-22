@@ -20,6 +20,8 @@
 #include "thread/Debug.hpp"
 #include "time/FloatDuration.hxx"
 #include "util/StaticFifoBuffer.hxx"
+#include "util/StaticArray.hxx"
+#include "FLARM/Id.hpp"
 #include "ui/event/Timer.hpp"
 
 #include <optional>
@@ -275,6 +277,15 @@ class DeviceDescriptor final
    * only every other time.
    */
   bool ticker = false;
+
+  /**
+   * Plane registration of the last FLARMnet lookup for
+   * Device::OnPeriodicUpdate() and the FLARM ids found.
+   *
+   * Only accessed from the main thread.
+   */
+  std::string periodic_registration;
+  StaticArray<FlarmId, 4> periodic_registration_ids;
 
   /**
    * True when somebody has "borrowed" the device.  Link timeouts are
@@ -624,6 +635,14 @@ public:
   bool EnableSecondDeviceNMEA(OperationEnvironment &env) noexcept;
 
   void OnSysTicker() noexcept;
+
+private:
+  /**
+   * Call Device::OnPeriodicUpdate() if the driver wants it.
+   */
+  void PeriodicUpdate() noexcept;
+
+public:
 
   /**
    * Wrapper for Driver::OnSensorUpdate().

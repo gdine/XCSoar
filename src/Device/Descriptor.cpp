@@ -31,6 +31,9 @@
 #include "Job/Job.hpp"
 #include "Operation/MessageOperationEnvironment.hpp"
 #include "Device/RecordedFlight.hpp"
+#include "Device/PeriodicContext.hpp"
+#include "Version.hpp"
+#include "FLARM/Details.hpp"
 
 #ifdef ANDROID
 #include "java/Closeable.hxx"
@@ -1717,6 +1720,8 @@ DeviceDescriptor::OnSysTicker() noexcept
 
   was_alive = now_alive;
 
+  PeriodicUpdate();
+
   if (now_alive || IsBorrowed()) {
     ticker = !ticker;
     if (ticker)
@@ -1727,6 +1732,63 @@ DeviceDescriptor::OnSysTicker() noexcept
         LogError(std::current_exception(), "OnSysTicker() failed");
       }
   }
+}
+
+void
+DeviceDescriptor::PeriodicUpdate() noexcept
+{
+  assert(InMainThread());
+
+  if (device == nullptr || driver == nullptr ||
+      !driver->UsesPeriodicUpdate() || IsOccupied())
+    return;
+
+  DevicePeriodicContext context;
+  context.version = XCSoar_Version;
+  FlarmId radio_id = FlarmId::Undefined();
+
+  {
+    const std::lock_guard lock{blackboard.mutex};
+    const auto &basic = blackboard.Basic();
+    if (basic.location_available)
+      context.location = basic.location;
+    context.altitude = basic.GetAnyAltitude();
+    radio_id = basic.flarm.hardware.radio_id;
+
+    const auto &settings = blackboard.GetComputerSettings();
+    context.registration = settings.plane.registration;
+#ifdef HAVE_TRACKING
+    for (const FlarmId id : settings.tracking.cloud.own_flarm_ids)
+      if (id.IsDefined() && !context.own_ids.full())
+        context.own_ids.append(id);
+#endif
+  }
+
+  if (radio_id.IsDefined() && !context.own_ids.full() &&
+      !context.own_ids.contains(radio_id))
+    context.own_ids.append(radio_id);
+
+  if (!StringIsEqual(periodic_registration.c_str(),
+                     context.registration.c_str())) {
+    periodic_registration = context.registration.c_str();
+    periodic_registration_ids.clear();
+    if (!periodic_registration.empty()) {
+      FlarmId ids[4];
+      const unsigned n =
+        FlarmDetails::FindIdsByRegistration(periodic_registration.c_str(),
+                                            ids, std::size(ids));
+      for (unsigned i = 0; i < n; ++i)
+        periodic_registration_ids.append(ids[i]);
+    }
+  }
+
+  for (const FlarmId id : periodic_registration_ids)
+    if (!context.own_ids.full() && !context.own_ids.contains(id))
+      context.own_ids.append(id);
+
+  NMEAInfo info = blackboard.LockGetDeviceDataUpdateClock(index);
+  if (device->OnPeriodicUpdate(context, info))
+    blackboard.LockSetDeviceDataScheduleMerge(index, info);
 }
 
 void

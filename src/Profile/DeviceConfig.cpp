@@ -38,6 +38,7 @@ static const char *const port_type_strings[] = {
   "android_usb_serial",
   "spectate_file",
   "safesky_gdl90",
+  "ogn_aprs",
   NULL
 };
 

@@ -1389,6 +1389,19 @@ lists.
   (60~km by default) and an optional vertical range.  Do not run
   another app listening on the same UDP port (such as a GDL90 to NMEA
   gateway) at the same time.
+  {\it OGN traffic receiver} connects over the internet to the Open
+  Glider Network server aprs.glidernet.org (port 14580) and shows the
+  aircraft received by the OGN ground stations.  The login callsign
+  must be unique: it is built from the glider registration ({\it
+  Plane} setup), with the dash replaced by a zero and a random SSID,
+  e.g.\ F0CGCN-7 for F-CGCN.  The server filter follows the glider
+  position, so a GPS fix is required.  Gliders are shown up to 200~km
+  and other aircraft up to 10~km; the own glider (FLARM radio id,
+  FlarmNet registration) and SafeSky users relayed to OGN are
+  skipped.  {\it Manage} sets these ranges and an optional vertical
+  range.  Targets are kept 20~seconds after their last beacon.  When
+  the same aircraft is also received by FLARM or SafeSky, the device
+  in the earlier slot wins.
   A pulse oximeter is selected as {\it BLE sensor} as well.  The
   Blood Oxygen InfoBox shows its saturation.
   The Devices list shows {\it Heart Rate}, {\it Blood Oxygen},

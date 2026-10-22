@@ -11300,3 +11300,31 @@ msgstr ""
 #: src/Dialogs/Device/GDL90/ConfigurationDialog.cpp:155
 msgid "SafeSky traffic with a larger altitude difference is ignored. 0 disables this filter."
 msgstr ""
+
+msgid "OGN traffic receiver"
+msgstr ""
+
+msgctxt "Menu"
+msgid "OGN Setup"
+msgstr ""
+
+msgid "Glider range"
+msgstr ""
+
+msgid "Gliders further away are ignored. The OGN server sends all traffic within this range plus 20 km."
+msgstr ""
+
+msgid "Other aircraft range"
+msgstr ""
+
+msgid "Other aircraft (tow planes, paragliders, ADS-B ...) further away are ignored. 0 hides them."
+msgstr ""
+
+msgid "OGN traffic with a larger altitude difference is ignored. 0 disables this filter."
+msgstr ""
+
+msgid "Ignore SafeSky relays"
+msgstr ""
+
+msgid "SafeSky users are also relayed to OGN under another id. Ignore these copies when SafeSky traffic is received directly through the SafeSky port."
+msgstr ""

@@ -104,10 +104,14 @@ TrafficTraceComputer::Update(const MoreData &basic) noexcept
     const bool have_previous = previous.valid &&
       !previous.valid.IsOlderThan(basic.clock, seconds{30});
 
-    /* Online merging refreshes validity even without a new report.
-       Keep the last measurement, not the last merge tick, for climb. */
-    if (have_previous && FlarmTraffic::IsInjectedSource(traffic.source) &&
-        !traffic.climb_rate_received &&
+    /* Online merging (and network feeds such as OGN or SafeSky which
+       republish absolute positions periodically) refreshes validity
+       even without a new report.  Keep the last measurement, not the
+       last merge tick, for climb. */
+    if (have_previous &&
+        ((FlarmTraffic::IsInjectedSource(traffic.source) &&
+          !traffic.climb_rate_received) ||
+         traffic.absolute_location) &&
         traffic.location == previous.location &&
         traffic.altitude == previous.altitude)
       continue;

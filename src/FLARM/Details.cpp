@@ -11,6 +11,8 @@
 #include "util/Macros.hpp"
 #include "util/StringCompare.hxx"
 
+#include <string>
+
 #include <cassert>
 #include <utility>
 
@@ -75,6 +77,47 @@ FindIdsByCallSign(const char *cn, FlarmId array[], unsigned size) noexcept
   assert(traffic_databases != nullptr);
 
   return traffic_databases->FindIdsByName(cn, array, size);
+}
+
+static std::string
+NormalizeRegistration(const char *registration)
+{
+  std::string result;
+  for (const char *p = registration; *p != '\0'; ++p) {
+    const char ch = *p;
+    if (ch == '-' || ch == ' ')
+      continue;
+    result.push_back(ch >= 'a' && ch <= 'z' ? char(ch - 'a' + 'A') : ch);
+  }
+
+  return result;
+}
+
+unsigned
+FindIdsByRegistration(const char *registration, FlarmId array[],
+                      unsigned size) noexcept
+try {
+  assert(registration != nullptr);
+
+  if (traffic_databases == nullptr || size == 0)
+    return 0;
+
+  const std::string wanted = NormalizeRegistration(registration);
+  if (wanted.empty())
+    return 0;
+
+  unsigned count = 0;
+  for (const auto &[id, record] : traffic_databases->flarm_net) {
+    if (NormalizeRegistration(record.registration) == wanted) {
+      array[count++] = id;
+      if (count >= size)
+        break;
+    }
+  }
+
+  return count;
+} catch (...) {
+  return 0;
 }
 
 ResolvedInfo

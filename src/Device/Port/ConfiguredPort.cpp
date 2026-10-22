@@ -153,6 +153,12 @@ OpenPortInternal(EventLoop &event_loop, Cares::Channel &cares,
     return std::make_unique<UDPPort>(event_loop, config.tcp_port,
                                      listener, handler);
 
+  case DeviceConfig::PortType::OGN_APRS:
+    return std::make_unique<TCPClientPort>(event_loop, cares,
+                                           DeviceConfig::OGN_APRS_HOST,
+                                           DeviceConfig::OGN_APRS_PORT,
+                                           listener, handler);
+
   case DeviceConfig::PortType::SPECTATE_FILE: {
     const char *spectate_path = config.path.empty()
       ? DeviceConfig::DEFAULT_SPECTATE_PATH

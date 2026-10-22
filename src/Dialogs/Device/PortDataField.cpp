@@ -51,6 +51,7 @@ static constexpr struct {
   { DeviceConfig::PortType::TCP_LISTENER, N_("TCP port") },
   { DeviceConfig::PortType::UDP_LISTENER, N_("UDP port") },
   { DeviceConfig::PortType::SAFESKY_GDL90, N_("SafeSky GDL90 (UDP)") },
+  { DeviceConfig::PortType::OGN_APRS, N_("OGN traffic receiver") },
 
   { DeviceConfig::PortType::SPECTATE_FILE, N_("Condor 3 Spectate file") },
 
@@ -304,6 +305,7 @@ SetPort(DataFieldEnum &df, const DeviceConfig &config) noexcept
   case DeviceConfig::PortType::GLIDER_LINK:
   case DeviceConfig::PortType::SPECTATE_FILE:
   case DeviceConfig::PortType::SAFESKY_GDL90:
+  case DeviceConfig::PortType::OGN_APRS:
     break;
 
   case DeviceConfig::PortType::SERIAL:

@@ -7,6 +7,7 @@
 #include "BlueFly/BlueFlyDialogs.hpp"
 #include "Stratux/ConfigurationDialog.hpp"
 #include "GDL90/ConfigurationDialog.hpp"
+#include "OGN/ConfigurationDialog.hpp"
 #include "ManageI2CPitotDialog.hpp"
 #include "ManageCAI302Dialog.hpp"
 #include "ManageFlarmDialog.hpp"
@@ -847,6 +848,13 @@ DeviceListWidget::ManageCurrent()
   if (descriptor.GetConfig().port_type ==
       DeviceConfig::PortType::SAFESKY_GDL90) {
     ManageSafeSkyDialog();
+    return;
+  }
+
+  if (descriptor.GetConfig().port_type ==
+      DeviceConfig::PortType::OGN_APRS ||
+      descriptor.IsDriver("OGN")) {
+    ManageOGNDialog();
     return;
   }
 

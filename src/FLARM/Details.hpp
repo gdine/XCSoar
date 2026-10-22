@@ -97,6 +97,14 @@ unsigned
 FindIdsByCallSign(const char *cn, FlarmId array[], unsigned size) noexcept;
 
 /**
+ * Finds the FLARMnet records with the given registration.  Case,
+ * dashes and spaces are ignored ("F-CGCN" matches "FCGCN").
+ */
+unsigned
+FindIdsByRegistration(const char *registration, FlarmId array[],
+                      unsigned size) noexcept;
+
+/**
  * Resolves human-readable fields with preference: messaging -> FLARMnet.
  * Callsign uses existing FindNameById() priority (user -> messaging -> FLARMnet).
  * Airfield is FLARMnet-only.

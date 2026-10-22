@@ -107,7 +107,19 @@ struct DeviceConfig {
      * "GDL90" driver in SafeSky mode.
      */
     SAFESKY_GDL90,
+
+    /**
+     * Receive OGN traffic from the APRS-IS server aprs.glidernet.org.
+     * Always uses the "OGN" driver.
+     */
+    OGN_APRS,
   };
+
+  /**
+   * APRS-IS server and port of #PortType::OGN_APRS.
+   */
+  static constexpr const char *OGN_APRS_HOST = "aprs.glidernet.org";
+  static constexpr unsigned OGN_APRS_PORT = 14580;
 
   /**
    * Default UDP port of #PortType::SAFESKY_GDL90 (SafeSky's GDL90
@@ -385,6 +397,7 @@ struct DeviceConfig {
     case PortType::ANDROID_USB_SERIAL:
     case PortType::SPECTATE_FILE:
     case PortType::SAFESKY_GDL90:
+    case PortType::OGN_APRS:
       break;
     }
 
@@ -441,6 +454,7 @@ struct DeviceConfig {
     case PortType::ANDROID_USB_SERIAL:
     case PortType::SPECTATE_FILE:
     case PortType::SAFESKY_GDL90:
+    case PortType::OGN_APRS:
       return true;
     }
 
@@ -483,7 +497,16 @@ struct DeviceConfig {
    * driver.
    */
   static constexpr const char *GetFixedDriver(PortType port_type) noexcept {
-    return port_type == PortType::SAFESKY_GDL90 ? "GDL90" : nullptr;
+    switch (port_type) {
+    case PortType::SAFESKY_GDL90:
+      return "GDL90";
+
+    case PortType::OGN_APRS:
+      return "OGN";
+
+    default:
+      return nullptr;
+    }
   }
 
   /**

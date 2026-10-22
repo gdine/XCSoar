@@ -526,6 +526,7 @@ FinishPortField(DeviceConfig &config, const DataFieldEnum &df) noexcept
   case DeviceConfig::PortType::GLIDER_LINK:
   case DeviceConfig::PortType::SPECTATE_FILE:
   case DeviceConfig::PortType::SAFESKY_GDL90:
+  case DeviceConfig::PortType::OGN_APRS:
     if (new_type == config.port_type)
       return false;
 
@@ -536,6 +537,9 @@ FinishPortField(DeviceConfig &config, const DataFieldEnum &df) noexcept
 
     if (new_type == DeviceConfig::PortType::SAFESKY_GDL90)
       config.ApplySafeSkyDefaults(config.port_type);
+
+    if (const char *fixed = DeviceConfig::GetFixedDriver(new_type))
+      config.driver_name = fixed;
 
     config.port_type = new_type;
     if (new_type == DeviceConfig::PortType::SPECTATE_FILE)

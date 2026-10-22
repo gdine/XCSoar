@@ -64,6 +64,7 @@ DeviceConfigOverlaps(const DeviceConfig &a, const DeviceConfig &b)
   case DeviceConfig::PortType::NUNCHUCK: // Who wants 2 nunchucks ??
   case DeviceConfig::PortType::IOIOVOLTAGE:
   case DeviceConfig::PortType::GLIDER_LINK:
+  case DeviceConfig::PortType::OGN_APRS:
     return true;
 
   case DeviceConfig::PortType::TCP_CLIENT:

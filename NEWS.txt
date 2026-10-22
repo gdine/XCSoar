@@ -195,6 +195,12 @@ Version 7.46 - not yet released
     ignore the SafeSky ownship, keep targets 15 s, estimate their
     climb rate, and prioritise targets within 20 km, then climbing
     ones; Manage sets the horizontal and vertical ranges
+  - add the "OGN traffic receiver" port type (Config → Devices):
+    receive OGN traffic from aprs.glidernet.org over 4G, log in with
+    a callsign derived from the glider registration (F-CGCN →
+    F0CGCN-0..15), follow the glider with the server range filter,
+    show gliders up to 200 km and other aircraft up to 10 km, skip
+    the own glider and SafeSky relays; Manage sets the ranges
   - download flights from a PowerFLARM Flex or Fusion over the
     device Wi-Fi, after asking the device for its type #1882
   - fail flight download immediately when the device answers that

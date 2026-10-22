@@ -142,6 +142,7 @@ TEST_NAMES = \
 	TestMosmixAutoUpdate \
 	TestGDL90 \
 	TestGDL90Driver \
+	TestOGNAprs \
 	TestLXNToIGC \
 	TestLeastSquares \
 	TestHexString \
@@ -264,6 +265,14 @@ TEST_GDL90_DRIVER_SOURCES = \
 	$(TEST_SRC_DIR)/TestGDL90Driver.cpp
 TEST_GDL90_DRIVER_DEPENDS = DRIVER NMEA FLARM GLIDE GEO TIME MATH UTIL UNITS
 $(eval $(call link-program,TestGDL90Driver,TEST_GDL90_DRIVER))
+
+TEST_OGN_APRS_SOURCES = \
+	$(SRC)/Device/Driver/OGN/Aprs.cpp \
+	$(SRC)/Device/Driver/OGN/Traffic.cpp \
+	$(TEST_SRC_DIR)/tap.c \
+	$(TEST_SRC_DIR)/TestOGNAprs.cpp
+TEST_OGN_APRS_DEPENDS = FLARM GEO TIME MATH UTIL UNITS
+$(eval $(call link-program,TestOGNAprs,TEST_OGN_APRS))
 
 TEST_LEASTSQUARES_SOURCES = \
 	$(SRC)/Math/LeastSquares.cpp \

@@ -22,6 +22,7 @@ class TransponderCode;
 class OperationEnvironment;
 struct RecordedFlightInfo;
 class RecordedFlightList;
+struct DevicePeriodicContext;
 
 /**
  * This is the interface for a device driver.
@@ -298,6 +299,21 @@ public:
    */
   virtual void OnCalculatedUpdate(const MoreData &basic,
                                   const DerivedInfo &calculated) = 0;
+
+  /**
+   * Called by the main thread twice per second, even when no data
+   * has been received, for drivers with the
+   * DeviceRegister::PERIODIC_UPDATE flag.  It may write to the port
+   * and update this device's #NMEAInfo (for example to keep traffic
+   * from a network feed alive).
+   *
+   * @param info this device's data, with an updated clock
+   * @return true if #info was modified and shall be merged
+   */
+  virtual bool OnPeriodicUpdate([[maybe_unused]] const DevicePeriodicContext &context,
+                                [[maybe_unused]] NMEAInfo &info) noexcept {
+    return false;
+  }
 };
 
 /**
@@ -445,6 +461,11 @@ struct DeviceRegister {
      * Can accept XCSoar's glide polar via PutPolar (PolarSync::SEND).
      */
     SEND_POLAR = 0x1000,
+
+    /**
+     * Call Device::OnPeriodicUpdate() twice per second.
+     */
+    PERIODIC_UPDATE = 0x2000,
   };
 
   /**
@@ -562,5 +583,9 @@ struct DeviceRegister {
    */
   bool CanSendPolar() const {
     return (flags & SEND_POLAR) != 0;
+  }
+
+  bool UsesPeriodicUpdate() const {
+    return (flags & PERIODIC_UPDATE) != 0;
   }
 };
