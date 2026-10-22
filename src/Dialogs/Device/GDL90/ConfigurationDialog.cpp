@@ -116,3 +116,95 @@ ManageGDL90Dialog() noexcept
   dialog.ShowModal();
 }
 
+
+class SafeSkyConfigurationWidget final : public RowFormWidget {
+  enum Controls {
+    HRANGE,
+    VRANGE,
+  };
+
+  SafeSkySettings settings;
+
+  static constexpr double HRANGE_STEP_M = 5000;
+  static constexpr double VRANGE_STEP_M = 100;
+
+public:
+  explicit SafeSkyConfigurationWidget(const DialogLook &look)
+    :RowFormWidget(look) {}
+
+  void Prepare([[maybe_unused]] ContainerWindow &parent,
+               [[maybe_unused]] const PixelRect &rc) noexcept override
+  {
+    LoadFromProfile(settings);
+
+    const Unit distance_u = Units::GetUserDistanceUnit();
+    const Unit altitude_u = Units::GetUserAltitudeUnit();
+
+    AddFloat(_("Horizontal Range"),
+             _("SafeSky traffic further away from the SafeSky ownship "
+               "position is ignored."),
+             "%.0f %s", "%.0f",
+             Units::ToUserUnit(SafeSkySettings::MIN_HRANGE_M, distance_u),
+             Units::ToUserUnit(SafeSkySettings::MAX_HRANGE_M, distance_u),
+             Units::ToUserUnit(HRANGE_STEP_M, distance_u),
+             false,
+             UnitGroup::DISTANCE,
+             double(settings.hrange));
+
+    AddFloat(_("Vertical Range"),
+             _("SafeSky traffic with a larger altitude difference is "
+               "ignored. 0 disables this filter."),
+             "%.0f %s", "%.0f",
+             0,
+             Units::ToUserUnit(SafeSkySettings::MAX_VRANGE_M, altitude_u),
+             Units::ToUserUnit(VRANGE_STEP_M, altitude_u),
+             false,
+             UnitGroup::ALTITUDE,
+             double(settings.vrange));
+  }
+
+  bool Save(bool &_changed) noexcept override
+  {
+    bool changed = false;
+
+    double h_m = double(settings.hrange);
+    if (SaveValue(HRANGE, UnitGroup::DISTANCE, h_m)) {
+      settings.hrange = static_cast<unsigned>(std::clamp(
+        std::lround(h_m), long(SafeSkySettings::MIN_HRANGE_M),
+        long(SafeSkySettings::MAX_HRANGE_M)));
+      changed = true;
+    }
+
+    double v_m = double(settings.vrange);
+    if (SaveValue(VRANGE, UnitGroup::ALTITUDE, v_m)) {
+      settings.vrange = static_cast<unsigned>(std::clamp(
+        std::lround(v_m), 0L, long(SafeSkySettings::MAX_VRANGE_M)));
+      changed = true;
+    }
+
+    if (changed) {
+      SaveToProfile(settings);
+      Profile::Save();
+
+      /* applied to the running SafeSky port immediately */
+      safesky_settings = settings;
+    }
+
+    _changed |= changed;
+    return true;
+  }
+};
+
+void
+ManageSafeSkyDialog() noexcept
+{
+  const DialogLook &look = UIGlobals::GetDialogLook();
+
+  WidgetDialog dialog(WidgetDialog::Auto{}, UIGlobals::GetMainWindow(),
+                      look, C_("Menu", "SafeSky Setup"),
+                      new SafeSkyConfigurationWidget(look));
+
+  dialog.AddButton(_("OK"), mrOK);
+  dialog.AddButton(_("Cancel"), mrCancel);
+  dialog.ShowModal();
+}

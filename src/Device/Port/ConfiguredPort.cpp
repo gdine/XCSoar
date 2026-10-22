@@ -149,6 +149,7 @@ OpenPortInternal(EventLoop &event_loop, Cares::Channel &cares,
                                      listener, handler);
 
   case DeviceConfig::PortType::UDP_LISTENER:
+  case DeviceConfig::PortType::SAFESKY_GDL90:
     return std::make_unique<UDPPort>(event_loop, config.tcp_port,
                                      listener, handler);
 

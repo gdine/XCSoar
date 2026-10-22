@@ -27,6 +27,15 @@ devInitOne(DeviceDescriptor &device, const DeviceConfig &config)
 static bool
 DeviceConfigOverlaps(const DeviceConfig &a, const DeviceConfig &b)
 {
+  const auto is_udp = [](DeviceConfig::PortType t){
+    return t == DeviceConfig::PortType::UDP_LISTENER ||
+      t == DeviceConfig::PortType::SAFESKY_GDL90;
+  };
+
+  /* both bind a UDP port */
+  if (is_udp(a.port_type) && is_udp(b.port_type))
+    return a.tcp_port == b.tcp_port;
+
   if (a.port_type != b.port_type)
     return false;
 
@@ -63,6 +72,7 @@ DeviceConfigOverlaps(const DeviceConfig &a, const DeviceConfig &b)
 
   case DeviceConfig::PortType::TCP_LISTENER:
   case DeviceConfig::PortType::UDP_LISTENER:
+  case DeviceConfig::PortType::SAFESKY_GDL90:
     return a.tcp_port == b.tcp_port;
   }
 

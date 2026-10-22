@@ -11324,3 +11324,20 @@ msgid ""
 "Enter a public identity of 1 to 10 Unicode characters without control "
 "characters."
 msgstr ""
+
+#: src/Dialogs/Device/PortDataField.cpp:53
+msgid "SafeSky GDL90 (UDP)"
+msgstr ""
+
+#: src/Dialogs/Device/GDL90/ConfigurationDialog.cpp:204
+msgctxt "Menu"
+msgid "SafeSky Setup"
+msgstr ""
+
+#: src/Dialogs/Device/GDL90/ConfigurationDialog.cpp:144
+msgid "SafeSky traffic further away from the SafeSky ownship position is ignored."
+msgstr ""
+
+#: src/Dialogs/Device/GDL90/ConfigurationDialog.cpp:155
+msgid "SafeSky traffic with a larger altitude difference is ignored. 0 disables this filter."
+msgstr ""

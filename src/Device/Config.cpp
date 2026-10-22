@@ -50,6 +50,7 @@ DeviceConfig::IsAvailable() const noexcept
   case PortType::TCP_LISTENER:
   case PortType::UDP_LISTENER:
   case PortType::SPECTATE_FILE:
+  case PortType::SAFESKY_GDL90:
     return true;
 
   case PortType::PTY:
@@ -95,6 +96,7 @@ DeviceConfig::ShouldReopenOnTimeout() const noexcept
   case PortType::TCP_LISTENER:
   case PortType::UDP_LISTENER:
   case PortType::SPECTATE_FILE:
+  case PortType::SAFESKY_GDL90:
     /* local file polling; reopening does not help */
     return false;
 
@@ -166,6 +168,16 @@ DeviceConfig::ApplySpectateDefaults() noexcept
 {
   if (path.empty())
     path = DEFAULT_SPECTATE_PATH;
+}
+
+void
+DeviceConfig::ApplySafeSkyDefaults(PortType previous_type) noexcept
+{
+  driver_name = GetFixedDriver(PortType::SAFESKY_GDL90);
+
+  if (previous_type != PortType::UDP_LISTENER &&
+      previous_type != PortType::SAFESKY_GDL90)
+    tcp_port = DEFAULT_SAFESKY_UDP_PORT;
 }
 
 void
@@ -300,6 +312,10 @@ DeviceConfig::GetPortName(char *buffer, size_t max_size) const noexcept
 
   case PortType::SPECTATE_FILE:
     StringFormat(buffer, max_size, "%s", path.c_str());
+    return buffer;
+
+  case PortType::SAFESKY_GDL90:
+    StringFormat(buffer, max_size, "SafeSky GDL90 UDP %u", tcp_port);
     return buffer;
   }
 

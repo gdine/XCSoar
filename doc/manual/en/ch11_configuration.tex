@@ -1377,6 +1377,18 @@ lists.
   follows that live device.  Enable {\it Heart rate broadcast} and
   leave the Xiaomi app (and a second XCSoar copy) disconnected so the
   standard heart-rate service is free.
+  {\it SafeSky GDL90 (UDP)} receives the GDL90 traffic that the
+  SafeSky app sends over UDP (port 4000 by default, set {\it TCP Port}
+  to change it); the GDL90 driver is selected automatically.  The
+  SafeSky ownship is not used as a GPS source; XCSoar keeps using the
+  phone GPS and barometer.  SafeSky targets are kept for 15~seconds
+  after their last report, a climb rate is estimated from the
+  altitude history (SafeSky sends zero), and at most 89 targets are
+  shown: those within 20~km first, then climbing ones, then the
+  rest, each nearest first.  {\it Manage} sets the horizontal range
+  (60~km by default) and an optional vertical range.  Do not run
+  another app listening on the same UDP port (such as a GDL90 to NMEA
+  gateway) at the same time.
   A pulse oximeter is selected as {\it BLE sensor} as well.  The
   Blood Oxygen InfoBox shows its saturation.
   The Devices list shows {\it Heart Rate}, {\it Blood Oxygen},

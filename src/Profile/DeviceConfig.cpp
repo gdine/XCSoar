@@ -37,6 +37,7 @@ static const char *const port_type_strings[] = {
   "glider_link",
   "android_usb_serial",
   "spectate_file",
+  "safesky_gdl90",
   NULL
 };
 
@@ -194,6 +195,9 @@ Profile::GetDeviceConfig(const ProfileMap &map, unsigned n,
   strcpy(buffer, "DeviceA");
   buffer[strlen(buffer) - 1] += n;
   map.Get(buffer, config.driver_name);
+
+  if (const char *fixed = DeviceConfig::GetFixedDriver(config.port_type))
+    config.driver_name = fixed;
 
   if (const char *name = make_port_name("Enabled"); name != nullptr)
     map.Get(name, config.enabled);

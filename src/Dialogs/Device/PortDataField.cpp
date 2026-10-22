@@ -50,6 +50,7 @@ static constexpr struct {
      selection UI */
   { DeviceConfig::PortType::TCP_LISTENER, N_("TCP port") },
   { DeviceConfig::PortType::UDP_LISTENER, N_("UDP port") },
+  { DeviceConfig::PortType::SAFESKY_GDL90, N_("SafeSky GDL90 (UDP)") },
 
   { DeviceConfig::PortType::SPECTATE_FILE, N_("Condor 3 Spectate file") },
 
@@ -302,6 +303,7 @@ SetPort(DataFieldEnum &df, const DeviceConfig &config) noexcept
   case DeviceConfig::PortType::RFCOMM_SERVER:
   case DeviceConfig::PortType::GLIDER_LINK:
   case DeviceConfig::PortType::SPECTATE_FILE:
+  case DeviceConfig::PortType::SAFESKY_GDL90:
     break;
 
   case DeviceConfig::PortType::SERIAL:

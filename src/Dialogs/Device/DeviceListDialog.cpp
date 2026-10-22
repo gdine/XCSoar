@@ -844,6 +844,12 @@ DeviceListWidget::ManageCurrent()
   }
 #endif
 
+  if (descriptor.GetConfig().port_type ==
+      DeviceConfig::PortType::SAFESKY_GDL90) {
+    ManageSafeSkyDialog();
+    return;
+  }
+
   if (descriptor.IsDriver("GDL90")) {
     ManageGDL90Dialog();
     return;

@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <new>
+#include <optional>
 
 /*
  * GDL90 driver — see Protocol.md in this directory for framing, endianness,
@@ -368,6 +369,13 @@ GDL90Device::ParseHeartbeat(std::span<const uint8_t> payload,
   if (payload.size() < GDL90_HEARTBEAT_MIN_PAYLOAD)
     return;
 
+  if (safesky) {
+    /* SafeSky: only status1 bit 7 ("GPS position valid") is used; the
+       phone provides time and date. */
+    safesky->OnHeartbeat((payload[0] & 0x80) != 0, info.clock);
+    return;
+  }
+
   const uint8_t status2 = payload[1];
   if ((status2 & GDL90_HEARTBEAT_UTC_VALID_MASK) == 0)
     return;
@@ -411,14 +419,32 @@ GDL90Device::ParseOwnshipReport(std::span<const uint8_t> payload,
       lon_deg < GDL90_LON_MIN_DEG || lon_deg > GDL90_LON_MAX_DEG)
     return;
 
-  info.location = GeoPoint(Angle::Degrees(lon_deg), Angle::Degrees(lat_deg));
-  info.location_available.Update(info.clock);
+  const GeoPoint location(Angle::Degrees(lon_deg), Angle::Degrees(lat_deg));
 
   /* Altitude word: bits 15–4 = pressure altitude code; bits 3–0 = misc
      (track-valid flags in low 2 bits per ICD §3.5.1). */
   const uint16_t alt_word = ReadBE16(payload, 10);
   const uint16_t altitude_code = alt_word >> GDL90_ALT_WORD_CODE_SHIFT;
   const uint8_t misc = uint8_t(alt_word & GDL90_ALT_WORD_MISC_MASK);
+
+  if (safesky) {
+    /* SafeSky's ownship is only used to filter and rank traffic; the
+       phone's own GPS and baro remain XCSoar's position source. */
+    std::optional<double> altitude;
+    if (altitude_code != GDL90_PRESSURE_ALT_INVALID)
+      altitude = Units::ToSysUnit(int(altitude_code) *
+                                  GDL90_PRESSURE_ALT_FT_LSB -
+                                  GDL90_PRESSURE_ALT_FT_OFFSET,
+                                  Unit::FEET);
+
+    safesky->OnOwnship(ReadBE24(payload, 1), uint8_t(payload[0] & 0x0f),
+                       location, (payload[12] >> 4) != 0,
+                       altitude, info.clock);
+    return;
+  }
+
+  info.location = location;
+  info.location_available.Update(info.clock);
   if (altitude_code != GDL90_PRESSURE_ALT_INVALID) {
     const int altitude_ft = int(altitude_code) * GDL90_PRESSURE_ALT_FT_LSB -
       GDL90_PRESSURE_ALT_FT_OFFSET;
@@ -456,7 +482,7 @@ GDL90Device::ParseOwnshipGeometricAltitude(std::span<const uint8_t> payload,
                                            NMEAInfo &info) noexcept
 {
   /* Ownship Geometric Altitude (ICD §3.6): int16, 5 ft per LSB */
-  if (payload.size() < GDL90_GEOM_ALT_PAYLOAD_BYTES)
+  if (payload.size() < GDL90_GEOM_ALT_PAYLOAD_BYTES || safesky)
     return;
 
   const int16_t alt5 = int16_t(ReadBE16(payload, 0));
@@ -486,7 +512,7 @@ GDL90Device::ParseForeFlight(std::span<const uint8_t> payload,
    * AHRS (0x01): BE16 fields at [1],[3],[5],[7],[9] — roll, pitch, heading,
    * IAS, TAS (see Protocol.md).
    */
-  if (payload.empty())
+  if (payload.empty() || safesky)
     return;
 
   const uint8_t sub_id = payload[0];
@@ -563,26 +589,148 @@ GDL90Device::ParseForeFlight(std::span<const uint8_t> payload,
   }
 }
 
-void
-GDL90Device::ParseTrafficReport(std::span<const uint8_t> payload,
-                                NMEAInfo &info) noexcept
+/**
+ * Aircraft type mapping used by the SafeSky gateway (tested with
+ * SafeSky traffic): small aircraft are reported as jets and
+ * ultralights as paragliders.
+ */
+static constexpr FlarmTraffic::AircraftType
+ToSafeSkyAircraftType(uint8_t emitter_category) noexcept
 {
-  /* Traffic Report (ICD §3.5 / §3.5.1) */
-  if (payload.size() < GDL90_REPORT_PAYLOAD_BYTES)
-    return;
+  switch (emitter_category) {
+  case 1:
+    return FlarmTraffic::AircraftType::POWERED_AIRCRAFT;
 
-  /* byte 0: low nibble = alert status, high nibble = address type
+  case 2:
+  case 3:
+  case 4:
+  case 5:
+  case 6:
+    return FlarmTraffic::AircraftType::JET_AIRCRAFT;
+
+  case 7:
+    return FlarmTraffic::AircraftType::HELICOPTER;
+
+  case 9:
+    return FlarmTraffic::AircraftType::GLIDER;
+
+  case 10:
+    return FlarmTraffic::AircraftType::BALLOON;
+
+  case 11:
+    return FlarmTraffic::AircraftType::PARACHUTE;
+
+  case 12:
+    return FlarmTraffic::AircraftType::PARA_GLIDER;
+
+  default:
+    return FlarmTraffic::AircraftType::UNKNOWN;
+  }
+}
+
+static void
+SetSourceFromAddressType(FlarmTraffic &traffic, uint8_t address_type) noexcept
+{
+  /* id_type: ICAO for stable 24-bit addresses; RANDOM for self-assigned /
+     track-file IDs so FlarmComputer skips callsign DB lookup (see FTD-012). */
+  switch (address_type) {
+  case GDL90_ADDR_ADSB_ICAO:
+    traffic.source = FlarmTraffic::SourceType::ADSB;
+    traffic.id_type = FlarmTraffic::IdType::ICAO;
+    break;
+
+  case GDL90_ADDR_ADSB_SELF_ASSIGNED:
+    traffic.source = FlarmTraffic::SourceType::ADSB;
+    traffic.id_type = FlarmTraffic::IdType::RANDOM;
+    break;
+
+  case GDL90_ADDR_TISB_ICAO:
+  case GDL90_ADDR_TISB_SURFACE_VEHICLE:
+    traffic.source = FlarmTraffic::SourceType::TISB;
+    traffic.id_type = FlarmTraffic::IdType::ICAO;
+    break;
+
+  case GDL90_ADDR_TISB_TRACK_FILE:
+    traffic.source = FlarmTraffic::SourceType::TISB;
+    traffic.id_type = FlarmTraffic::IdType::RANDOM;
+    break;
+
+  case GDL90_ADDR_ADSR_ICAO:
+    traffic.source = FlarmTraffic::SourceType::ADSR;
+    traffic.id_type = FlarmTraffic::IdType::ICAO;
+    break;
+
+  default:
+    traffic.source = FlarmTraffic::SourceType::ADSB;
+    traffic.id_type = FlarmTraffic::IdType::ICAO;
+    break;
+  }
+}
+
+/**
+ * SafeSky follows the ICD and declares the address type in the low
+ * nibble.  Types 0/1 are ADS-B, 2/3 TIS-B; any other type (e.g.
+ * SafeSky's own users or relayed FLARM/OGN traffic) keeps the FLARM
+ * source.  Addresses that are not ICAO are treated as FLARM ids so
+ * FlarmNet names can be looked up.
+ */
+static void
+SetSafeSkySourceFromAddressType(FlarmTraffic &traffic,
+                                uint8_t address_type) noexcept
+{
+  switch (address_type) {
+  case GDL90_ADDR_ADSB_ICAO:
+  case GDL90_ADDR_ADSB_SELF_ASSIGNED:
+    traffic.source = FlarmTraffic::SourceType::ADSB;
+    break;
+
+  case GDL90_ADDR_TISB_ICAO:
+  case GDL90_ADDR_TISB_TRACK_FILE:
+    traffic.source = FlarmTraffic::SourceType::TISB;
+    break;
+
+  default:
+    traffic.source = FlarmTraffic::SourceType::FLARM;
+    break;
+  }
+
+  traffic.id_type = address_type == GDL90_ADDR_ADSB_ICAO ||
+    address_type == GDL90_ADDR_TISB_ICAO
+    ? FlarmTraffic::IdType::ICAO
+    : FlarmTraffic::IdType::FLARM;
+}
+
+/**
+ * Decode a Traffic / Ownship Report (ICD §3.5.1) into an absolute
+ * #FlarmTraffic.
+ *
+ * @param safesky decode the SafeSky way (low nibble address type,
+ * SafeSky aircraft type mapping)
+ * @return false if the report is unusable
+ */
+static bool
+DecodeTrafficReport(std::span<const uint8_t> payload, bool safesky,
+                    SafeSkyTraffic::Report &report) noexcept
+{
+  if (payload.size() < GDL90_REPORT_PAYLOAD_BYTES)
+    return false;
+
+  /* byte 0: alert status and address type nibbles
      bytes 1-3: participant address (24-bit) */
   const uint8_t b0 = payload[0];
-  const uint8_t address_type = b0 >> 4;
+  report.address_type = safesky ? uint8_t(b0 & 0x0f) : uint8_t(b0 >> 4);
 
-  const uint32_t participant_address = ReadBE24(payload, 1);
-  if (participant_address == 0)
-    return;
+  report.address = ReadBE24(payload, 1);
+  if (report.address == 0)
+    return false;
 
-  const FlarmId id = MakeIcaoFlarmId(participant_address);
-  if (!id.IsDefined())
-    return;
+  FlarmTraffic &traffic = report.traffic;
+  traffic = {};
+  traffic.Clear();
+
+  traffic.id = MakeIcaoFlarmId(report.address);
+  if (!traffic.id.IsDefined())
+    return false;
 
   const int32_t lat_raw = SignExtend24(ReadBE24(payload, 4));
   const int32_t lon_raw = SignExtend24(ReadBE24(payload, 7));
@@ -592,25 +740,111 @@ GDL90Device::ParseTrafficReport(std::span<const uint8_t> payload,
   if (!std::isfinite(lat_deg) || !std::isfinite(lon_deg) ||
       lat_deg < GDL90_LAT_MIN_DEG || lat_deg > GDL90_LAT_MAX_DEG ||
       lon_deg < GDL90_LON_MIN_DEG || lon_deg > GDL90_LON_MAX_DEG)
-    return;
+    return false;
+
+  /* NIC (high nibble of byte 12): 0 = unknown integrity / no fix */
+  report.valid_position = (payload[12] >> 4) != 0;
 
   /* Same altitude / misc layout as ownship (ICD §3.5.1). */
   const uint16_t alt_word = ReadBE16(payload, 10);
   const uint16_t altitude_code = alt_word >> GDL90_ALT_WORD_CODE_SHIFT;
   const uint8_t misc = uint8_t(alt_word & GDL90_ALT_WORD_MISC_MASK);
 
-  bool altitude_available = altitude_code != GDL90_PRESSURE_ALT_INVALID;
-  double altitude = 0;
-  if (altitude_available) {
+  if (altitude_code != GDL90_PRESSURE_ALT_INVALID) {
     const int altitude_ft = int(altitude_code) * GDL90_PRESSURE_ALT_FT_LSB -
       GDL90_PRESSURE_ALT_FT_OFFSET;
-    altitude = Units::ToSysUnit(altitude_ft, Unit::FEET);
+    traffic.altitude = Units::ToSysUnit(altitude_ft, Unit::FEET);
+    traffic.altitude_available = true;
+    traffic.absolute_altitude = true;
+  } else {
+    traffic.altitude = 0;
+    traffic.altitude_available = false;
+    traffic.absolute_altitude = false;
   }
 
+  const uint32_t vel = ReadBE24(payload, 13);
+  const uint16_t h_code = uint16_t((vel >> GDL90_VEL_HORIZONTAL_SHIFT) &
+                                    GDL90_VEL_HORIZONTAL_MASK);
+  const uint16_t v_code = uint16_t(vel & GDL90_VEL_VERTICAL_MASK);
+
+  traffic.speed_received = h_code != GDL90_VEL_HORIZONTAL_INVALID;
+  traffic.speed = traffic.speed_received
+    ? Units::ToSysUnit(h_code, Unit::KNOTS)
+    : 0.;
+
+  /* Lower 12 bits: vertical speed; 0x800 means “no information”. */
+  traffic.climb_rate_received = v_code != GDL90_VEL_VERTICAL_NO_INFO;
+  traffic.climb_rate = 0;
+  if (traffic.climb_rate_received) {
+    /* Sign-extend 12-bit two's complement to 16 bits. */
+    int16_t v_signed = int16_t(v_code);
+    if ((v_signed & int16_t(GDL90_VEL12_SIGN_BIT)) != 0)
+      v_signed = int16_t(v_signed - GDL90_VEL12_SIGN_EXTEND);
+
+    traffic.climb_rate = double(v_signed) *
+      double(GDL90_VERTICAL_RATE_FPM_PER_LSB) *
+      GDL90_FPM_TO_METERS_PER_SECOND;
+  }
+
+  const uint8_t track_byte = payload[16];
+  const uint8_t track_status = misc & GDL90_TRACK_STATUS_MASK;
+  /* SafeSky: only a true track (01) is a ground track. */
+  const bool track_valid = safesky
+    ? track_status == 1
+    : track_status != 0;
+  traffic.track_received = track_valid &&
+    track_byte != GDL90_TRACK_BYTE_INVALID;
+  traffic.track = traffic.track_received
+    ? Angle::Degrees(double(track_byte) * GDL90_TRACK_DEG_PER_BYTE)
+    : Angle::Zero();
+
+  const std::span<const uint8_t, GDL90_CALLSIGN_CHAR_COUNT> callsign{
+    payload.data() + GDL90_REPORT_CALLSIGN_OFFSET,
+    GDL90_CALLSIGN_CHAR_COUNT};
+  ExtractCallsign(callsign, traffic.name);
+
+  traffic.alarm_level = FlarmTraffic::AlarmType::NONE;
+
+  if (safesky) {
+    traffic.type = ToSafeSkyAircraftType(payload[17]);
+    SetSafeSkySourceFromAddressType(traffic, report.address_type);
+  } else {
+    traffic.type = ToFlarmAircraftType(payload[17]);
+    SetSourceFromAddressType(traffic, report.address_type);
+  }
+
+  traffic.location = GeoPoint(Angle::Degrees(lon_deg), Angle::Degrees(lat_deg));
+  traffic.location_available = true;
+  traffic.absolute_location = true;
+
+  /* Not conveyed by the Traffic Report; leave relative_* and
+     climb_rate_avg30s_* for FlarmComputer. */
+  traffic.stealth = false;
+  traffic.no_track = false;
+  traffic.rssi_available = false;
+  traffic.turn_rate_received = false;
+
+  return true;
+}
+
+void
+GDL90Device::ParseTrafficReport(std::span<const uint8_t> payload,
+                                NMEAInfo &info) noexcept
+{
+  /* Traffic Report (ICD §3.5 / §3.5.1) */
+  SafeSkyTraffic::Report report;
+  if (!DecodeTrafficReport(payload, safesky != nullptr, report))
+    return;
+
+  if (safesky) {
+    safesky->OnTraffic(report, info.clock);
+    return;
+  }
+
+  const FlarmTraffic &decoded = report.traffic;
+
   if (gdl90_settings.hrange > 0 && info.location_available) {
-    const GeoPoint target_location(Angle::Degrees(lon_deg),
-                                   Angle::Degrees(lat_deg));
-    const GeoVector vec{info.location, target_location};
+    const GeoVector vec{info.location, decoded.location};
     if (vec.distance > gdl90_settings.hrange)
       return;
   }
@@ -618,55 +852,21 @@ GDL90Device::ParseTrafficReport(std::span<const uint8_t> payload,
   /* Traffic reports carry pressure altitude (ICD §3.5.1). Compare only to
      ownship pressure — not GPS/geometric (0x0B), or a bogus delta can exceed
      vrange and drop every target (e.g. Stratux with geom alt but no baro). */
-  if (gdl90_settings.vrange > 0 && altitude_available &&
+  if (gdl90_settings.vrange > 0 && decoded.altitude_available &&
       info.pressure_altitude_available) {
-    if (fabs(altitude - info.pressure_altitude) > gdl90_settings.vrange)
+    if (fabs(double(decoded.altitude) - info.pressure_altitude) >
+        gdl90_settings.vrange)
       return;
   }
 
-  const uint8_t nacp_nic = payload[12];
-  (void)nacp_nic; /* not used yet */
-
-  const uint32_t vel = ReadBE24(payload, 13);
-  const uint16_t h_code = uint16_t((vel >> GDL90_VEL_HORIZONTAL_SHIFT) &
-                                    GDL90_VEL_HORIZONTAL_MASK);
-  const uint16_t v_code = uint16_t(vel & GDL90_VEL_VERTICAL_MASK);
-
-  bool speed_received = h_code != GDL90_VEL_HORIZONTAL_INVALID;
-  double speed = 0;
-  if (speed_received)
-    speed = Units::ToSysUnit(h_code, Unit::KNOTS);
-
-  /* Lower 12 bits: vertical speed; 0x800 means “no information”. */
-  bool climb_rate_received = v_code != GDL90_VEL_VERTICAL_NO_INFO;
-  double climb_rate = 0;
-  if (climb_rate_received) {
-    /* Sign-extend 12-bit two's complement to 16 bits. */
-    int16_t v_signed = int16_t(v_code);
-    if ((v_signed & int16_t(GDL90_VEL12_SIGN_BIT)) != 0)
-      v_signed = int16_t(v_signed - GDL90_VEL12_SIGN_EXTEND);
-
-    climb_rate = double(v_signed) * double(GDL90_VERTICAL_RATE_FPM_PER_LSB) *
-      GDL90_FPM_TO_METERS_PER_SECOND;
-  }
-
-  const uint8_t track_byte = payload[16];
-  const bool track_valid = (misc & GDL90_TRACK_STATUS_MASK) != 0;
-  bool track_received = track_valid;
-  Angle track = Angle::Zero();
-  if (track_received && track_byte != GDL90_TRACK_BYTE_INVALID)
-    track = Angle::Degrees(double(track_byte) * GDL90_TRACK_DEG_PER_BYTE);
-  else
-    track_received = false;
-
-  FlarmTraffic *slot = info.flarm.traffic.FindTraffic(id);
+  FlarmTraffic *slot = info.flarm.traffic.FindTraffic(decoded.id);
   if (slot == nullptr) {
     slot = info.flarm.traffic.AllocateTraffic();
     if (slot == nullptr)
       return;
 
     slot->Clear();
-    slot->id = id;
+    slot->id = decoded.id;
     /* Relatives are filled by FlarmComputer from ownship GPS; only clear
        on first insert so later reports do not stomp computed values. */
     slot->relative_north = 0;
@@ -678,90 +878,40 @@ GDL90Device::ParseTrafficReport(std::span<const uint8_t> payload,
   info.flarm.traffic.modified.Update(info.clock);
   slot->valid.Update(info.clock);
 
-  if (payload.size() >= GDL90_TRAFFIC_MIN_PAYLOAD_FOR_CALLSIGN) {
-    const std::span<const uint8_t, GDL90_CALLSIGN_CHAR_COUNT> callsign{
-      payload.data() + GDL90_REPORT_CALLSIGN_OFFSET,
-      GDL90_CALLSIGN_CHAR_COUNT};
-    ExtractCallsign(callsign, slot->name);
-  }
+  slot->name = decoded.name;
+  slot->alarm_level = decoded.alarm_level;
+  slot->type = decoded.type;
+  slot->source = decoded.source;
+  slot->id_type = decoded.id_type;
 
-  slot->alarm_level = FlarmTraffic::AlarmType::NONE;
-  slot->type = ToFlarmAircraftType(payload[17]);
+  slot->location = decoded.location;
+  slot->location_available = decoded.location_available;
+  slot->absolute_location = decoded.absolute_location;
 
-  /* id_type: ICAO for stable 24-bit addresses; RANDOM for self-assigned /
-     track-file IDs so FlarmComputer skips callsign DB lookup (see FTD-012). */
-  switch (address_type) {
-  case GDL90_ADDR_ADSB_ICAO:
-    slot->source = FlarmTraffic::SourceType::ADSB;
-    slot->id_type = FlarmTraffic::IdType::ICAO;
-    break;
+  slot->altitude = decoded.altitude;
+  slot->altitude_available = decoded.altitude_available;
+  slot->absolute_altitude = decoded.absolute_altitude;
 
-  case GDL90_ADDR_ADSB_SELF_ASSIGNED:
-    slot->source = FlarmTraffic::SourceType::ADSB;
-    slot->id_type = FlarmTraffic::IdType::RANDOM;
-    break;
+  slot->track = decoded.track;
+  slot->track_received = decoded.track_received;
+  slot->speed = decoded.speed;
+  slot->speed_received = decoded.speed_received;
+  slot->climb_rate = decoded.climb_rate;
+  slot->climb_rate_received = decoded.climb_rate_received;
 
-  case GDL90_ADDR_TISB_ICAO:
-  case GDL90_ADDR_TISB_SURFACE_VEHICLE:
-    slot->source = FlarmTraffic::SourceType::TISB;
-    slot->id_type = FlarmTraffic::IdType::ICAO;
-    break;
-
-  case GDL90_ADDR_TISB_TRACK_FILE:
-    slot->source = FlarmTraffic::SourceType::TISB;
-    slot->id_type = FlarmTraffic::IdType::RANDOM;
-    break;
-
-  case GDL90_ADDR_ADSR_ICAO:
-    slot->source = FlarmTraffic::SourceType::ADSR;
-    slot->id_type = FlarmTraffic::IdType::ICAO;
-    break;
-
-  default:
-    slot->source = FlarmTraffic::SourceType::ADSB;
-    slot->id_type = FlarmTraffic::IdType::ICAO;
-    break;
-  }
-
-  slot->location = GeoPoint(Angle::Degrees(lon_deg), Angle::Degrees(lat_deg));
-  slot->location_available = true;
-  slot->absolute_location = true;
-
-  if (altitude_available) {
-    slot->altitude = altitude;
-    slot->altitude_available = true;
-    slot->absolute_altitude = true;
-  } else {
-    slot->altitude = 0;
-    slot->altitude_available = false;
-    slot->absolute_altitude = false;
-  }
-
-  if (track_received) {
-    slot->track = track;
-    slot->track_received = true;
-  } else
-    slot->track_received = false;
-
-  if (speed_received) {
-    slot->speed = speed;
-    slot->speed_received = true;
-  } else
-    slot->speed_received = false;
-
-  if (climb_rate_received) {
-    slot->climb_rate = climb_rate;
-    slot->climb_rate_received = true;
-  } else
-    slot->climb_rate_received = false;
-
-  /* Not conveyed by the Traffic Report; leave relative_* and
-     climb_rate_avg30s_* for FlarmComputer. */
-  slot->stealth = false;
-  slot->no_track = false;
-  slot->rssi_available = false;
-  slot->turn_rate_received = false;
+  slot->stealth = decoded.stealth;
+  slot->no_track = decoded.no_track;
+  slot->rssi_available = decoded.rssi_available;
+  slot->turn_rate_received = decoded.turn_rate_received;
 }
+
+GDL90Device::GDL90Device(bool safesky_mode)
+{
+  if (safesky_mode)
+    safesky = std::make_unique<SafeSkyTraffic>();
+}
+
+GDL90Device::~GDL90Device() noexcept = default;
 
 bool
 GDL90Device::DataReceived(std::span<const std::byte> s,
@@ -854,6 +1004,9 @@ GDL90Device::DataReceived(std::span<const std::byte> s,
         break;
       }
     }
+
+    if (safesky)
+      safesky->Publish(info.flarm.traffic, info.clock, safesky_settings);
   } catch (const std::bad_alloc &) {
     buffer.clear();
     escaped_frame.clear();

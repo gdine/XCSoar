@@ -311,7 +311,8 @@ DeviceEditWidget::UpdateVisibilities() noexcept
   SetRowAvailable(I2CAddr, DeviceConfig::UsesI2C(type) &&
                 type != DeviceConfig::PortType::NUNCHUCK);
   SetRowAvailable(PressureUsage, DeviceConfig::IsPressureSensor(type));
-  SetRowVisible(Driver, DeviceConfig::UsesDriver(type));
+  SetRowVisible(Driver, DeviceConfig::UsesDriver(type) &&
+                DeviceConfig::GetFixedDriver(type) == nullptr);
 
   SetRowVisible(UseSecondDriver, DeviceConfig::UsesDriver(type)
                 && CanPassThrough(GetDataField(Driver)));
@@ -524,6 +525,7 @@ FinishPortField(DeviceConfig &config, const DataFieldEnum &df) noexcept
   case DeviceConfig::PortType::RFCOMM_SERVER:
   case DeviceConfig::PortType::GLIDER_LINK:
   case DeviceConfig::PortType::SPECTATE_FILE:
+  case DeviceConfig::PortType::SAFESKY_GDL90:
     if (new_type == config.port_type)
       return false;
 
@@ -531,6 +533,9 @@ FinishPortField(DeviceConfig &config, const DataFieldEnum &df) noexcept
        defaults; otherwise ApplySpectateDefaults leaves it unchanged. */
     if (new_type == DeviceConfig::PortType::SPECTATE_FILE)
       config.path.clear();
+
+    if (new_type == DeviceConfig::PortType::SAFESKY_GDL90)
+      config.ApplySafeSkyDefaults(config.port_type);
 
     config.port_type = new_type;
     if (new_type == DeviceConfig::PortType::SPECTATE_FILE)
@@ -614,7 +619,13 @@ DeviceEditWidget::Save(bool &_changed) noexcept
   }
 
   if (config.UsesDriver()) {
-    changed |= SaveValue(Driver, config.driver_name);
+    if (const char *fixed = DeviceConfig::GetFixedDriver(config.port_type)) {
+      if (!config.driver_name.equals(fixed)) {
+        config.driver_name = fixed;
+        changed = true;
+      }
+    } else
+      changed |= SaveValue(Driver, config.driver_name);
 
     if (CanReceiveSettings(GetDataField(Driver)))
       changed |= SaveValue(SyncFromDevice, config.sync_from_device);
@@ -660,6 +671,14 @@ DeviceEditWidget::OnModified(DataField &df) noexcept
         config.path.clear();
       config.ApplySpectateDefaults();
       LoadValue(SpectatePath, config.path);
+    } else if (const char *fixed = DeviceConfig::GetFixedDriver(type)) {
+      /* the hidden driver field decides which driver options are
+         shown */
+      LoadValueEnum(Driver, fixed);
+
+      if (type == DeviceConfig::PortType::SAFESKY_GDL90 &&
+          config.port_type != DeviceConfig::PortType::SAFESKY_GDL90)
+        LoadValueEnum(TCPPort, DeviceConfig::DEFAULT_SAFESKY_UDP_PORT);
     }
   }
 

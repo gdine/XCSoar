@@ -190,6 +190,11 @@ Version 7.46 - not yet released
     leaving gaps unconnected
   - allow traffic trail timeout adjustment from five minutes to
     24 hours below Traffic trails, defaulting to one hour
+  - add the "SafeSky GDL90 (UDP)" port type (Config → Devices):
+    receive SafeSky traffic on UDP port 4000 with the GDL90 driver,
+    ignore the SafeSky ownship, keep targets 15 s, estimate their
+    climb rate, and prioritise targets within 20 km, then climbing
+    ones; Manage sets the horizontal and vertical ranges
   - download flights from a PowerFLARM Flex or Fusion over the
     device Wi-Fi, after asking the device for its type #1882
   - fail flight download immediately when the device answers that

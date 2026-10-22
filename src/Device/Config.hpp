@@ -101,7 +101,19 @@ struct DeviceConfig {
      * Poll a Condor 3 Spectate.json file for multiplayer traffic.
      */
     SPECTATE_FILE,
+
+    /**
+     * Receive SafeSky GDL90 traffic on a UDP port.  Always uses the
+     * "GDL90" driver in SafeSky mode.
+     */
+    SAFESKY_GDL90,
   };
+
+  /**
+   * Default UDP port of #PortType::SAFESKY_GDL90 (SafeSky's GDL90
+   * output port).
+   */
+  static constexpr unsigned DEFAULT_SAFESKY_UDP_PORT = 4000;
 
   /**
    * Type of the port
@@ -372,6 +384,7 @@ struct DeviceConfig {
     case PortType::UDP_LISTENER:
     case PortType::ANDROID_USB_SERIAL:
     case PortType::SPECTATE_FILE:
+    case PortType::SAFESKY_GDL90:
       break;
     }
 
@@ -427,6 +440,7 @@ struct DeviceConfig {
     case PortType::UDP_LISTENER:
     case PortType::ANDROID_USB_SERIAL:
     case PortType::SPECTATE_FILE:
+    case PortType::SAFESKY_GDL90:
       return true;
     }
 
@@ -455,12 +469,28 @@ struct DeviceConfig {
   static constexpr bool UsesTCPPort(PortType port_type) noexcept {
     return port_type == PortType::TCP_LISTENER ||
       port_type == PortType::TCP_CLIENT ||
-      port_type == PortType::UDP_LISTENER;
+      port_type == PortType::UDP_LISTENER ||
+      port_type == PortType::SAFESKY_GDL90;
   }
 
   constexpr bool UsesTCPPort() const noexcept {
     return UsesTCPPort(port_type);
   }
+
+  /**
+   * Does this port type always use the same driver (the "Driver"
+   * setting is not offered)?  Returns nullptr if the user chooses the
+   * driver.
+   */
+  static constexpr const char *GetFixedDriver(PortType port_type) noexcept {
+    return port_type == PortType::SAFESKY_GDL90 ? "GDL90" : nullptr;
+  }
+
+  /**
+   * Apply the defaults of #PortType::SAFESKY_GDL90: the GDL90 driver
+   * and, if the port was not a UDP port before, SafeSky's UDP port.
+   */
+  void ApplySafeSkyDefaults(PortType previous_type) noexcept;
 
   constexpr bool IsDriver(const char *name) const noexcept {
     return UsesDriver() && driver_name.equals(name);

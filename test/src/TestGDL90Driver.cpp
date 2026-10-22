@@ -11,6 +11,7 @@
 #include "util/CRC16CCITT.hpp"
 
 #include <cstdint>
+#include <cstdio>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -920,9 +921,300 @@ TestOversizeFrameDropped() noexcept
   ok1(info.flarm.traffic.IsEmpty());
 }
 
+/* ---- SafeSky GDL90 (UDP) mode ---- */
+
+static std::vector<uint8_t>
+BuildSafeSkyReport(uint8_t msg_id, uint8_t address_type, uint32_t address,
+                   double lat_deg, double lon_deg, int altitude_ft,
+                   int vertical_code = 0, uint8_t category = 9,
+                   uint8_t nic = 8, const char *callsign = "SKY1")
+{
+  uint8_t payload[27]{};
+  /* alert status in the high nibble, address type in the low nibble */
+  payload[0] = uint8_t(0x10 | (address_type & 0x0f));
+  payload[1] = uint8_t(address >> 16);
+  payload[2] = uint8_t(address >> 8);
+  payload[3] = uint8_t(address);
+
+  WriteBE24(payload + 4, DegreesToSemiCircles24(lat_deg));
+  WriteBE24(payload + 7, DegreesToSemiCircles24(lon_deg));
+
+  const uint16_t alt_word = uint16_t((((altitude_ft + 1000) / 25) << 4) | 0x01);
+  payload[10] = uint8_t(alt_word >> 8);
+  payload[11] = uint8_t(alt_word);
+  payload[12] = uint8_t(nic << 4);
+
+  const uint32_t vel = (uint32_t(80) << 12) | (uint32_t(vertical_code) & 0xfff);
+  payload[13] = uint8_t(vel >> 16);
+  payload[14] = uint8_t(vel >> 8);
+  payload[15] = uint8_t(vel);
+  payload[16] = 64; /* 90 degrees */
+  payload[17] = category;
+
+  for (unsigned i = 0; i < 8; ++i)
+    payload[18 + i] = callsign[i] != 0 ? uint8_t(callsign[i]) : ' ';
+  for (unsigned i = 0; i < 8; ++i)
+    if (callsign[i] == 0) {
+      for (unsigned j = i; j < 8; ++j)
+        payload[18 + j] = ' ';
+      break;
+    }
+
+  return BuildFrame(msg_id, payload, sizeof(payload));
+}
+
+static std::vector<uint8_t>
+BuildSafeSkyHeartbeat(bool gps_valid)
+{
+  const uint8_t payload[6] = {
+    uint8_t(gps_valid ? 0x81 : 0x01), 0x01, 0x10, 0x0e, 0, 0,
+  };
+  return BuildFrame(0x00, payload, sizeof(payload));
+}
+
+static constexpr uint32_t SAFESKY_OWN = 0x123456;
+static constexpr double OWN_LAT = 46.0, OWN_LON = 6.0;
+
+static void
+FeedAt(GDL90Device &dev, NMEAInfo &info, double t,
+       const std::vector<uint8_t> &bytes)
+{
+  info.clock = TimeStamp{FloatDuration{t}};
+  Feed(dev, info, bytes);
+}
+
+static void
+FeedSafeSkyOwnship(GDL90Device &dev, NMEAInfo &info, double t)
+{
+  FeedAt(dev, info, t, BuildSafeSkyReport(0x0a, 1, SAFESKY_OWN,
+                                          OWN_LAT, OWN_LON, 3000));
+}
+
+static const FlarmTraffic *
+FindAddress(const NMEAInfo &info, uint32_t address)
+{
+  char buffer[8];
+  snprintf(buffer, sizeof(buffer), "%06X", (unsigned)address);
+  return info.flarm.traffic.FindTraffic(FlarmId::Parse(buffer, nullptr));
+}
+
+static void
+TestSafeSkyOwnshipNotPublished()
+{
+  safesky_settings = SafeSkySettings{};
+  GDL90Device dev(true);
+  ok1(dev.IsSafeSkyMode());
+
+  NMEAInfo info = MakeBlankNMEAInfo();
+  FeedAt(dev, info, 1, BuildSafeSkyHeartbeat(true));
+  FeedSafeSkyOwnship(dev, info, 1);
+
+  ok1(info.alive);
+  ok1(!info.location_available);
+  ok1(!info.pressure_altitude_available);
+  ok1(!info.time_available);
+  ok1(!info.gps.real);
+
+  /* ownship echoed as traffic is not shown */
+  FeedAt(dev, info, 1.5, BuildSafeSkyReport(0x14, 1, SAFESKY_OWN,
+                                            OWN_LAT, OWN_LON, 3000));
+  ok1(info.flarm.traffic.IsEmpty());
+}
+
+static void
+TestSafeSkyAddressTypes()
+{
+  safesky_settings = SafeSkySettings{};
+  GDL90Device dev(true);
+  NMEAInfo info = MakeBlankNMEAInfo();
+  FeedSafeSkyOwnship(dev, info, 1);
+
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 0, 0x3C0001, 46.01, 6.0,
+                                          3000, 0, 1));
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 1, 0xDD0002, 46.02, 6.0,
+                                          3000, 0, 12));
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 2, 0x3C0003, 46.03, 6.0,
+                                          3000, 0, 2));
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 5, 0xDD0004, 46.04, 6.0,
+                                          3000, 0, 9, 8, "F-CABC"));
+
+  const FlarmTraffic *a = FindAddress(info, 0x3C0001);
+  ok1(a != nullptr && a->source == FlarmTraffic::SourceType::ADSB &&
+      a->id_type == FlarmTraffic::IdType::ICAO &&
+      a->type == FlarmTraffic::AircraftType::POWERED_AIRCRAFT);
+
+  const FlarmTraffic *b = FindAddress(info, 0xDD0002);
+  ok1(b != nullptr && b->source == FlarmTraffic::SourceType::ADSB &&
+      b->id_type == FlarmTraffic::IdType::FLARM &&
+      b->type == FlarmTraffic::AircraftType::PARA_GLIDER);
+
+  const FlarmTraffic *c = FindAddress(info, 0x3C0003);
+  ok1(c != nullptr && c->source == FlarmTraffic::SourceType::TISB &&
+      c->id_type == FlarmTraffic::IdType::ICAO &&
+      c->type == FlarmTraffic::AircraftType::JET_AIRCRAFT);
+
+  const FlarmTraffic *d = FindAddress(info, 0xDD0004);
+  ok1(d != nullptr && d->source == FlarmTraffic::SourceType::FLARM &&
+      d->id_type == FlarmTraffic::IdType::FLARM &&
+      d->type == FlarmTraffic::AircraftType::GLIDER &&
+      d->name.equals("F-CABC") && d->absolute_location &&
+      d->track_received && d->speed_received);
+}
+
+static void
+TestSafeSkyPersistence()
+{
+  safesky_settings = SafeSkySettings{};
+  GDL90Device dev(true);
+  NMEAInfo info = MakeBlankNMEAInfo();
+  FeedSafeSkyOwnship(dev, info, 1);
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 1, 0xDD1000, 46.05, 6.0,
+                                          3000));
+  ok1(FindAddress(info, 0xDD1000) != nullptr);
+
+  /* only heartbeats for 14 s: target is kept and refreshed */
+  for (double t = 2; t <= 15; t += 1) {
+    FeedAt(dev, info, t, BuildSafeSkyHeartbeat(true));
+    info.flarm.traffic.Expire(info.clock);
+  }
+
+  const FlarmTraffic *t = FindAddress(info, 0xDD1000);
+  ok1(t != nullptr && t->valid);
+
+  /* 15 s after the last report it is removed */
+  FeedAt(dev, info, 16, BuildSafeSkyHeartbeat(true));
+  ok1(FindAddress(info, 0xDD1000) == nullptr);
+  ok1(info.flarm.traffic.IsEmpty());
+}
+
+static void
+TestSafeSkyClimbEstimate()
+{
+  safesky_settings = SafeSkySettings{};
+  GDL90Device dev(true);
+  NMEAInfo info = MakeBlankNMEAInfo();
+
+  /* SafeSky reports a zero vertical velocity; altitude rises 25 ft/s */
+  for (int i = 0; i <= 3; ++i)
+    FeedAt(dev, info, 1 + i, BuildSafeSkyReport(0x14, 1, 0xDD2000, 46.05, 6.0,
+                                                3000 + 25 * i));
+
+  /* 3 s span: not enough history yet, the reported zero is kept */
+  const FlarmTraffic *t = FindAddress(info, 0xDD2000);
+  ok1(t != nullptr && t->climb_rate_received && t->climb_rate == 0);
+
+  for (int i = 4; i <= 6; ++i)
+    FeedAt(dev, info, 1 + i, BuildSafeSkyReport(0x14, 1, 0xDD2000, 46.05, 6.0,
+                                                3000 + 25 * i));
+
+  t = FindAddress(info, 0xDD2000);
+  ok1(t != nullptr && t->climb_rate_received &&
+      between(t->climb_rate, 7.5, 7.75));
+
+  /* a non-zero reported vertical rate is used as is: 0x00a = 640 fpm */
+  FeedAt(dev, info, 8, BuildSafeSkyReport(0x14, 1, 0xDD2000, 46.05, 6.0,
+                                          3200, 0x00a));
+  t = FindAddress(info, 0xDD2000);
+  ok1(t != nullptr && between(t->climb_rate, 3.2, 3.3));
+
+  /* "no information" (0x800) with no usable history stays unknown */
+  FeedAt(dev, info, 8, BuildSafeSkyReport(0x14, 1, 0xDD2001, 46.05, 6.0,
+                                          3000, 0x800));
+  t = FindAddress(info, 0xDD2001);
+  ok1(t != nullptr && !t->climb_rate_received);
+}
+
+static void
+TestSafeSkyFilters()
+{
+  safesky_settings = SafeSkySettings{};
+  GDL90Device dev(true);
+  NMEAInfo info = MakeBlankNMEAInfo();
+
+  /* without a SafeSky ownship nothing can be filtered */
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 1, 0xDD3000, 47.0, 6.0,
+                                          3000));
+  ok1(FindAddress(info, 0xDD3000) != nullptr);
+
+  /* 111 km away: dropped once the ownship is known (default 60 km) */
+  FeedSafeSkyOwnship(dev, info, 2);
+  ok1(FindAddress(info, 0xDD3000) == nullptr);
+
+  /* 55 km: kept; no vertical filter by default */
+  FeedAt(dev, info, 2, BuildSafeSkyReport(0x14, 1, 0xDD3001, 46.5, 6.0,
+                                          12000));
+  ok1(FindAddress(info, 0xDD3001) != nullptr);
+
+  /* NIC 0 (no valid position) is not shown */
+  FeedAt(dev, info, 2, BuildSafeSkyReport(0x14, 1, 0xDD3002, 46.1, 6.0,
+                                          3000, 0, 9, 0));
+  ok1(FindAddress(info, 0xDD3002) == nullptr);
+
+  /* the settings apply immediately */
+  safesky_settings.hrange = 40000;
+  safesky_settings.vrange = 1000;
+  FeedAt(dev, info, 3, BuildSafeSkyHeartbeat(true));
+  ok1(FindAddress(info, 0xDD3001) == nullptr);
+
+  FeedAt(dev, info, 3, BuildSafeSkyReport(0x14, 1, 0xDD3003, 46.1, 6.0,
+                                          8000));
+  ok1(FindAddress(info, 0xDD3003) == nullptr);
+  FeedAt(dev, info, 3, BuildSafeSkyReport(0x14, 1, 0xDD3004, 46.1, 6.0,
+                                          5000));
+  ok1(FindAddress(info, 0xDD3004) != nullptr);
+
+  /* a heartbeat without GPS fix invalidates the ownship: no filter */
+  FeedAt(dev, info, 4, BuildSafeSkyHeartbeat(false));
+  ok1(FindAddress(info, 0xDD3001) != nullptr);
+  ok1(FindAddress(info, 0xDD3000) != nullptr);
+
+  safesky_settings = SafeSkySettings{};
+}
+
+static void
+TestSafeSkyPriority()
+{
+  safesky_settings = SafeSkySettings{};
+  GDL90Device dev(true);
+  NMEAInfo info = MakeBlankNMEAInfo();
+  FeedSafeSkyOwnship(dev, info, 1);
+
+  /* 95 far targets (25-50 km) without climb */
+  for (unsigned i = 0; i < 95; ++i)
+    FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 1, 0xEE0000 + i,
+                                            OWN_LAT + 0.23 + i * 0.002,
+                                            OWN_LON, 3000));
+
+  /* the farthest target, but climbing */
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 1, 0xEE1000, 46.53, 6.0,
+                                          3000, 0x00a));
+  /* a near target */
+  FeedAt(dev, info, 1, BuildSafeSkyReport(0x14, 1, 0xEE2000, 46.05, 6.0,
+                                          3000));
+
+  ok1(info.flarm.traffic.list.size() == TrafficList::MAX_COUNT);
+  ok1(FindAddress(info, 0xEE2000) != nullptr);
+  ok1(FindAddress(info, 0xEE1000) != nullptr);
+  /* the nearest far ones are kept, the farthest ones dropped */
+  ok1(FindAddress(info, 0xEE0000) != nullptr);
+  ok1(FindAddress(info, 0xEE0000 + 94) == nullptr);
+}
+
+static void
+TestGenericModeUnchanged()
+{
+  /* without SafeSky mode the high nibble is the address type and the
+     ownship is a GPS source */
+  GDL90Device dev;
+  NMEAInfo info = MakeBlankNMEAInfo();
+  FeedSafeSkyOwnship(dev, info, 1);
+  ok1(info.location_available);
+  ok1(!dev.IsSafeSkyMode());
+}
+
 int main()
 {
-  plan_tests(94);
+  plan_tests(94 + 35);
 
   TestBadCrcIgnored();
   TestHeartbeatTimeOfDay();
@@ -945,6 +1237,14 @@ int main()
   TestNegativeCoordinates();
   TestUnavailableFields();
   TestOversizeFrameDropped();
+
+  TestSafeSkyOwnshipNotPublished();
+  TestSafeSkyAddressTypes();
+  TestSafeSkyPersistence();
+  TestSafeSkyClimbEstimate();
+  TestSafeSkyFilters();
+  TestSafeSkyPriority();
+  TestGenericModeUnchanged();
 
   return exit_status();
 }

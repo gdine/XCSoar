@@ -3,13 +3,20 @@
 
 #include "Device/Driver/GDL90.hpp"
 #include "Driver.hpp"
+#include "Device/Config.hpp"
 
 static Device *
-GDL90CreateOnPort([[maybe_unused]] const DeviceConfig &config,
+GDL90CreateOnPort(const DeviceConfig &config,
                   [[maybe_unused]] Port &com_port)
 {
   LoadFromProfile(gdl90_settings);
-  return new GDL90Device();
+
+  const bool safesky =
+    config.port_type == DeviceConfig::PortType::SAFESKY_GDL90;
+  if (safesky)
+    LoadFromProfile(safesky_settings);
+
+  return new GDL90Device(safesky);
 }
 
 const struct DeviceRegister gdl90_driver = {

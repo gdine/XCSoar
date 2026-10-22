@@ -9,7 +9,10 @@
  */
 
 #include "Device/Driver.hpp"
+#include "SafeSky.hpp"
+
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -39,6 +42,12 @@ private:
    */
   bool geo_altitude_is_msl = false;
 
+  /**
+   * Non-null when this device is a "SafeSky GDL90 (UDP)" port: the
+   * ownship is not published and traffic goes through this cache.
+   */
+  std::unique_ptr<SafeSkyTraffic> safesky;
+
   void ParseTrafficReport(std::span<const uint8_t> payload,
                           NMEAInfo &info) noexcept;
 
@@ -55,6 +64,19 @@ private:
                        NMEAInfo &info) noexcept;
 
 public:
+  GDL90Device() noexcept = default;
+
+  /**
+   * @param safesky_mode enable the SafeSky specific traffic handling
+   */
+  explicit GDL90Device(bool safesky_mode);
+
+  ~GDL90Device() noexcept;
+
+  bool IsSafeSkyMode() const noexcept {
+    return safesky != nullptr;
+  }
+
   bool DataReceived(std::span<const std::byte> s,
                     NMEAInfo &info) noexcept override;
 };
