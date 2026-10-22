@@ -8,6 +8,7 @@
 #include "Map.hpp"
 #include "Keys.hpp"
 #include "MapSettings.hpp"
+#include "Computer/TrafficTraceComputer.hpp"
 
 #include <algorithm> // for std::clamp()
 
@@ -118,6 +119,12 @@ Profile::Load(const ProfileMap &map, MapSettings &settings)
   map.GetEnum(ProfileKeys::MapShiftBias, settings.map_shift_bias);
   map.Get(ProfileKeys::EnableFLARMMap, settings.show_flarm_on_map);
   map.Get(ProfileKeys::FadeTraffic, settings.fade_traffic);
+  map.Get(ProfileKeys::TrafficTrails, settings.show_traffic_trails);
+  if (unsigned timeout; map.Get(ProfileKeys::TrafficTrailTimeout, timeout))
+    settings.traffic_trail_timeout = std::clamp(
+      std::chrono::seconds{timeout},
+      std::chrono::seconds{TrafficTraceComputer::MIN_RETENTION},
+      std::chrono::seconds{TrafficTraceComputer::MAX_RETENTION});
 
   map.Get(ProfileKeys::EnableThermalProfile, settings.show_thermal_profile);
   map.Get(ProfileKeys::DistanceRingsEnabled, settings.distance_rings_enabled);

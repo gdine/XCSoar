@@ -120,6 +120,9 @@ TEST_NAMES = \
 	TestMETARParser \
 	TestIGCParser TestIGCFlightTimes \
 	TestTraceBounds \
+	TestTrafficTrace \
+	TestRecentClimbs \
+	TestCollaborativeFlight \
 	TestStrings TestUnescapeCString TestUTF8 TestWrapText TestLayout \
 	TestInputConfig \
 	TestCRC16 TestCRC8 \
@@ -1289,6 +1292,24 @@ TEST_WAY_POINT_FILE_SOURCES = \
 TEST_WAY_POINT_FILE_DEPENDS = WAYPOINTFILE PROFILE OPERATION GEO MATH IO ZZIP OS THREAD UTIL
 $(eval $(call link-program,TestWaypointReader,TEST_WAY_POINT_FILE))
 
+TEST_RECENT_CLIMBS_SOURCES = \
+	$(SRC)/RecentClimbs/Update.cpp \
+	$(SRC)/Formatter/TimeFormatter.cpp \
+	$(SRC)/Waypoint/Factory.cpp \
+	$(SRC)/Radio/RadioFrequency.cpp \
+	$(TEST_SRC_DIR)/FakeTerrain.cpp \
+	$(TEST_SRC_DIR)/tap.c \
+	$(TEST_SRC_DIR)/TestRecentClimbs.cpp
+TEST_RECENT_CLIMBS_DEPENDS = WAYPOINTFILE GEO MATH IO OS UTIL TIME
+$(eval $(call link-program,TestRecentClimbs,TEST_RECENT_CLIMBS))
+
+TEST_COLLABORATIVE_FLIGHT_SOURCES = \
+	$(SRC)/CollaborativeFlight/Core.cpp \
+	$(TEST_SRC_DIR)/tap.c \
+	$(TEST_SRC_DIR)/TestCollaborativeFlight.cpp
+TEST_COLLABORATIVE_FLIGHT_DEPENDS = JSON GEO MATH IO UTIL
+$(eval $(call link-program,TestCollaborativeFlight,TEST_COLLABORATIVE_FLIGHT))
+
 TEST_TRACE_SOURCES = \
 	$(TEST_SRC_DIR)/tap.c \
 	$(SRC)/Engine/Trace/Point.cpp \
@@ -1308,6 +1329,18 @@ TEST_TRACE_BOUNDS_SOURCES = \
 	$(TEST_SRC_DIR)/TestTraceBounds.cpp
 TEST_TRACE_BOUNDS_DEPENDS = GEO MATH UTIL
 $(eval $(call link-program,TestTraceBounds,TEST_TRACE_BOUNDS))
+
+TEST_TRAFFIC_TRACE_SOURCES = \
+	$(TEST_SRC_DIR)/tap.c \
+	$(TEST_SRC_DIR)/FakeLogFile.cpp \
+	$(SRC)/FLARM/Traffic.cpp \
+	$(SRC)/Atmosphere/AirDensity.cpp \
+	$(SRC)/Engine/Trace/Point.cpp \
+	$(SRC)/Engine/Trace/Trace.cpp \
+	$(SRC)/Computer/TrafficTraceComputer.cpp \
+	$(TEST_SRC_DIR)/TestTrafficTrace.cpp
+TEST_TRAFFIC_TRACE_DEPENDS = LIBNMEA GEO MATH UTIL THREAD FMT
+$(eval $(call link-program,TestTrafficTrace,TEST_TRAFFIC_TRACE))
 
 FLIGHT_TABLE_SOURCES = \
 	$(SRC)/IGC/IGCParser.cpp \
@@ -2439,6 +2472,7 @@ RUN_MAP_WINDOW_SOURCES = \
 	$(SRC)/Logger/Settings.cpp \
 	$(SRC)/Computer/TraceComputer.cpp \
 	$(SRC)/Computer/WaypointReach.cpp \
+	$(SRC)/Computer/TrafficTraceComputer.cpp \
 	$(SRC)/IGC/IGCParser.cpp \
 	$(SRC)/Task/ProtectedRoutePlanner.cpp \
 	$(SRC)/Task/RoutePlannerGlue.cpp \

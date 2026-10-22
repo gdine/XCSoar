@@ -20,6 +20,8 @@
 #include "Operation/Operation.hpp"
 #include "Tracking/TrackingGlue.hpp"
 #include "net/client/tim/Glue.hpp"
+#include "RecentClimbs/Glue.hpp"
+#include "CollaborativeFlight/Glue.hpp"
 #include "ui/event/Idle.hpp"
 #include "Components.hpp"
 #include "NetComponents.hpp"
@@ -319,6 +321,20 @@ ProcessTimer() noexcept
     if (net_components->tim != nullptr &&
         CommonInterface::GetComputerSettings().weather.enable_tim)
       net_components->tim->OnTimer(CommonInterface::Basic());
+
+    if (net_components->recent_climbs != nullptr)
+      net_components->recent_climbs->OnTimer(
+        CommonInterface::GetComputerSettings().recent_climbs);
+
+    if (net_components->collaborative_climbs != nullptr)
+      net_components->collaborative_climbs->OnTimer(
+        CommonInterface::GetComputerSettings()
+          .collaborative_flight.GetDisplaySettings());
+
+    if (net_components->collaborative_flight != nullptr)
+      net_components->collaborative_flight->OnTimer(
+        CommonInterface::GetComputerSettings().collaborative_flight,
+        CommonInterface::Basic(), CommonInterface::Calculated());
 
     const NMEAInfo &basic = CommonInterface::Basic();
     if (net_components->notam != nullptr) {

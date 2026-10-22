@@ -12,6 +12,7 @@
 #include "Device/MultipleDevices.hpp"
 #include "Blackboard/DeviceBlackboard.hpp"
 #include "CalculationThread.hpp"
+#include "Computer/GlideComputer.hpp"
 #include "Task/ProtectedTaskManager.hpp"
 #include "Profile/Profile.hpp"
 #include "UIState.hpp"
@@ -252,6 +253,9 @@ ActionInterface::SendMapSettings(const bool trigger_draw) noexcept
     !GetUISettings().traffic.enable_gauge;
 
   main_window->SetMapSettings(GetMapSettings());
+  if (backend_components && backend_components->glide_computer)
+    backend_components->glide_computer->GetTrafficTraceComputer()
+      .SetRetention(GetMapSettings().traffic_trail_timeout);
 
   if (trigger_draw) {
     main_window->FullRedraw();

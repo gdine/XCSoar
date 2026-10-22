@@ -149,6 +149,11 @@ public:
             const DerivedInfo &calculated,
             const TrailSettings &settings) noexcept;
 
+  /** Draw a ground-referenced snapshot using the normal trail styles. */
+  void Draw(Canvas &canvas, const TracePointVector &snapshot,
+            const WindowProjection &projection, const TrailQuery &query,
+            const TrailSettings &settings) noexcept;
+
   /**
    * Draw the trace that was obtained by LoadTrace() with the trace pen.
    */
@@ -178,6 +183,13 @@ public:
                     const ContestTraceVector &trace) noexcept;
 
 private:
+  void DrawLoadedTrace(Canvas &canvas, const WindowProjection &projection,
+                       const TrailQuery &query, TimeStamp now,
+                       bool enable_traildrift, const GeoPoint &traildrift,
+                       const TrailSettings &settings,
+                       const NMEAInfo *basic = nullptr,
+                       PixelPoint pos = {}) noexcept;
+
   void SelectTrailPen(Canvas &canvas, unsigned color_index,
                       bool scaled_trail) const noexcept;
 

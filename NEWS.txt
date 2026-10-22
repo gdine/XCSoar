@@ -180,6 +180,16 @@ Version 7.46 - not yet released
     hourly tick marks) so successive flights without relaunch no
     longer overlay each other or mix terrain on the same X axis
 * FLARM
+  - add optional traffic snail trails on the map, using the glider's
+    trail length, colours and line/dot styles; enable Traffic trails
+    in Gauges / Traffic
+  - ignore repeated online traffic reports when colouring traffic
+    trails, so refreshed timestamps do not replace climb with zero
+  - retain lost traffic trails for one hour after the last report,
+    even without GPS updates, resetting the timeout on reception and
+    leaving gaps unconnected
+  - allow traffic trail timeout adjustment from five minutes to
+    24 hours below Traffic trails, defaulting to one hour
   - download flights from a PowerFLARM Flex or Fusion over the
     device Wi-Fi, after asking the device for its type #1882
   - fail flight download immediately when the device answers that
@@ -446,10 +456,43 @@ Version 7.46 - not yet released
     pixels, by refusing a size below 320x240 (240x320 when
     taller than wide) #2110
 * data files
+  - keep waypoint icons and labels, including recent and collaborative
+    climbs, visible above own-aircraft and traffic snail trails
+  - name collaborative climbs with an editable public identity (up to ten
+    Unicode characters) and a five-character hash instead of long internal
+    IDs; requires updating the supplied Google Apps Script receiver
+  - display collaborative climbs independently of Recent climbs, with a
+    separate CUP link, download interval, maximum age and minimum climb
+    rate; either service can run alone or both together, using the same
+    thermal icons and colours
+  - add the optional "Collaborative flight" service: detect your own
+    climbs on an idle-priority worker, queue summaries offline for
+    24 hours and upload them every three minutes (configurable) to a
+    Google Apps Script receiver for a shared Drive folder; includes
+    retry/deduplication and optional transfer logging
+  - fix Collaborative flight uploads failing because Android's network
+    library does not support the desktop credential-file option
+  - add the "Recent climbs" service (Config → Services): download a
+    publicly shared CUP file (a Google Drive share link is
+    converted automatically) every few minutes and show its climbs
+    as temporary waypoints, adding new climbs and removing those no
+    longer listed; choose a maximum age of 15 to 1,440 minutes
+    (60 by default), with thermal-velocity colour coding inspired by
+    Meteo-Parapente and a minimum climb-rate filter in m/s or ft/min
+    according to altitude units; the climbs are never saved to waypoint files
   - fix a failed save destroying the existing profile, waypoints,
     task, polar or flight log when a temporary file cannot be
     created #3256
 * documentation
+  - explain collaborative public identities, readable climb names and
+    receiver upgrades
+  - describe independent collaborative-climb display and its filters
+  - describe Collaborative flight and provide a Google Drive receiver
+    with deployment, privacy and offline retry instructions
+  - describe the Recent climbs service, age and minimum climb-rate filters,
+    and climb-rate colours
+  - describe traffic snail trails, one-hour retention, climb-rate
+    colouring and tracking privacy on the map
   - describe the repository download list: name and description,
     several files at once, and the country and search filters
   - clarify that Reach polar still applies to abort, alternates and

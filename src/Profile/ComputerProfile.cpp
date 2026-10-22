@@ -10,6 +10,8 @@
 #include "ContestProfile.hpp"
 #include "Map.hpp"
 #include "Computer/Settings.hpp"
+#include "CollaborativeFlight/Core.hpp"
+#include "LogFile.hpp"
 
 namespace Profile {
   static void Load(const ProfileMap &map, WindSettings &settings);
@@ -21,6 +23,8 @@ namespace Profile {
   static void Load(const ProfileMap &map, CirclingSettings &settings);
   static void Load(const ProfileMap &map, WaveSettings &settings);
   static void Load(const ProfileMap &map, WeGlideSettings &settings);
+  static void Load(const ProfileMap &map, RecentClimbsSettings &settings);
+  static void Load(const ProfileMap &map, CollaborativeFlightSettings &settings);
 };
 
 void
@@ -80,6 +84,62 @@ Profile::Load(const ProfileMap &map, WeGlideSettings &settings)
     if (sscanf(date, "%04u-%02u-%02u", &year, &month, &day) == 3)
       settings.pilot_birthdate = {year, month, day};
   }
+}
+
+void
+Profile::Load(const ProfileMap &map, RecentClimbsSettings &settings)
+{
+  map.Get(ProfileKeys::RecentClimbsEnabled, settings.enabled);
+  map.Get(ProfileKeys::RecentClimbsURL, settings.url);
+
+  if (unsigned interval; map.Get(ProfileKeys::RecentClimbsInterval, interval))
+    settings.interval =
+      RecentClimbsSettings::ClampInterval(std::chrono::seconds{interval});
+
+  if (unsigned age; map.Get(ProfileKeys::RecentClimbsMaxAge, age))
+    settings.max_age = RecentClimbsSettings::ClampMaxAge(age);
+
+  if (double rate; map.Get(ProfileKeys::RecentClimbsMinClimbRate, rate))
+    settings.min_climb_rate = RecentClimbsSettings::ClampMinClimbRate(rate);
+}
+
+void
+Profile::Load(const ProfileMap &map, CollaborativeFlightSettings &settings)
+{
+  map.Get(ProfileKeys::CollaborativeFlightEnabled, settings.enabled);
+  map.Get(ProfileKeys::CollaborativeFlightFolder, settings.folder_url);
+  map.Get(ProfileKeys::CollaborativeFlightURL, settings.upload_url);
+  map.Get(ProfileKeys::CollaborativeFlightToken, settings.token);
+  map.Get(ProfileKeys::CollaborativeFlightDebug, settings.debug);
+  if (!map.Get(ProfileKeys::CollaborativeFlightIdentity,
+               settings.public_identity)) {
+    std::string pilot, registration;
+    map.Get(ProfileKeys::PilotName, pilot);
+    map.Get(ProfileKeys::AircraftReg, registration);
+    try {
+      settings.public_identity =
+        CollaborativeFlight::DefaultPublicIdentity(pilot, registration);
+    } catch (...) {
+      LogError(std::current_exception(),
+               "Collaborative flight: cannot derive public identity");
+    }
+  }
+  if (unsigned interval;
+      map.Get(ProfileKeys::CollaborativeFlightInterval, interval))
+    settings.interval =
+      CollaborativeFlightSettings::ClampInterval(std::chrono::seconds{interval});
+
+  map.Get(ProfileKeys::CollaborativeClimbsURL, settings.display.url);
+  if (unsigned interval;
+      map.Get(ProfileKeys::CollaborativeClimbsInterval, interval))
+    settings.display.interval =
+      RecentClimbsSettings::ClampInterval(std::chrono::seconds{interval});
+  if (unsigned age; map.Get(ProfileKeys::CollaborativeClimbsMaxAge, age))
+    settings.display.max_age = RecentClimbsSettings::ClampMaxAge(age);
+  if (double rate;
+      map.Get(ProfileKeys::CollaborativeClimbsMinClimbRate, rate))
+    settings.display.min_climb_rate =
+      RecentClimbsSettings::ClampMinClimbRate(rate);
 }
 
 void
@@ -178,6 +238,8 @@ Profile::Load(const ProfileMap &map, ComputerSettings &settings)
   Load(map, settings.contest);
   Load(map, settings.logger);
   Load(map, settings.weglide);
+  Load(map, settings.recent_climbs);
+  Load(map, settings.collaborative_flight);
 
 #ifdef HAVE_TRACKING
   Load(map, settings.tracking);

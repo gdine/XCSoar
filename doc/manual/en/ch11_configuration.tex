@@ -632,6 +632,16 @@ This page sets the base for wind computations.
 \\
 \item[Auto close FLARM*]  This will close the FLARM radar view when all FLARM 
   traffic has gone.
+\item[Traffic trails] Draws traffic snail trails on the main map using
+  the glider's trail length, colour scheme, line/dot style and width.
+  Off by default.  Vario colours use traffic climb rate, not netto
+  vario.  Targets requesting no tracking are excluded.  See
+  Section~\ref{cha:airspace} for history limits and reception gaps.
+\item[Traffic trail timeout] Retains each target's trail after its last
+  received frame.  Default one hour; adjustable from five minutes to
+  24 hours in five-minute steps.  Every new frame resets that target's
+  timeout, even without GPS reception.  Available when Traffic trails
+  is On; the value is saved in the profile.
 \end{description}
 In all FLARM environments, the colour of the target indicates the threat level.
 
@@ -895,6 +905,169 @@ for details on this setup.
   Otherwise the track will be logged as `{\it guest}' and thus be anonymous.  
 \item[Password]  The password to your tracking account.
 \end{description}
+
+
+%%%%%%%%%%%%%%%%%%
+\section{Services / Recent climbs}
+
+This service periodically downloads a list of recently detected climbs
+from a CUP waypoint file published on the internet, for example on
+Google Drive, and shows the climbs as temporary waypoints. They appear
+on the map and in the waypoint list and can be used for Goto, but they
+are never saved to a waypoint file.
+
+At each update, climbs that are still listed in the file are kept, new
+climbs are added and climbs no longer listed are removed. If the
+download fails, the climbs from the last successful download are kept
+until they exceed the maximum age, even without an internet connection.
+Increasing the maximum age also restores eligible climbs from the last
+download without waiting for another update.
+Changing the CUP file link clears this service's previous-source waypoints
+and cache before fetching the new source. Collaborative flight has its own
+independent file link, cache and display filters.
+
+The CUP description must include the observation time as
+\texttt{Observed: YYYY-MM-DD HH:MM:SS UTC}. Entries with missing or invalid
+observation times are hidden and a warning is written to the log.
+Future observations are hidden until their observation time.
+The age is calculated from this UTC timestamp, not the age in the
+waypoint name; the device clock must therefore be correct.
+
+Climbs with the CUP style `normal' are shown as thermal hotspots.
+On colour displays, their icons have a black-bordered coloured halo
+based on \texttt{Avg vario: +N.N m/s} in the CUP description.
+The scale is inspired by Meteo-Parapente thermal velocity: white at
+0, yellow at 1, green at 2, cyan at 3, blue at 4, magenta at 5, red at
+6 and dark red at 7~m/s or above, with intermediate colours between
+these values. Missing or invalid rates keep the ordinary icon.
+Monochrome and dithered displays keep the ordinary icons. The climb
+rate also remains available as text in the waypoint description.
+
+\begin{description}
+\item[Recent climbs]  Switch this {\bf On} to enable the service.
+  Switching it {\bf Off} removes all downloaded climbs.
+\item[CUP file link]  The web address of the CUP file. A Google Drive
+  share link can be pasted as is; it is converted to a direct
+  download link. The file must be shared with `{\em Anyone with the
+  link}'.
+\item[Update interval]  How often the CUP file is downloaded, from
+  1 to 60 minutes; 3 minutes by default.
+\item[Maximum age]  The oldest climb to display, from 15 to 1,440
+  minutes in steps of 15 minutes; 60 minutes by default.
+\item[Minimum climb rate]  The minimum average climb rate to display;
+  zero by default (no rate filter). With altitude units set to metres,
+  this control uses m/s in steps of 0.1, from 0 to 20~m/s. With altitude
+  units set to feet, it uses ft/min in steps of 20, from 0 to 4,000~ft/min.
+  This follows the altitude setting, not the separate vertical-speed
+  unit preference. The threshold is saved internally in m/s, so changing
+  units preserves the physical threshold. Climbs exactly at the minimum
+  are included. A positive minimum hides climbs without a valid
+  \texttt{Avg vario: +N.N m/s} description field and logs a warning.
+  Changing the threshold immediately filters the last downloaded list,
+  even offline; lowering it restores eligible climbs.
+\end{description}
+
+
+%%%%%%%%%%%%%%%%%%
+\section{Services / Collaborative flight}
+
+This optional service is independent of Recent climbs. It displays the group's
+climbs using the same thermal icons and climb-rate colours, and shares summaries
+of your own detected climbs with a group through a Google Apps Script web
+app writing to Google Drive. It is disabled by default. A Drive folder
+share link alone cannot accept uploads: deploy and authorize the supplied
+\texttt{tools/collaborative-flight/Receiver.gs} receiver first, following
+its accompanying setup guide.
+
+Only real GPS fixes while flying are processed; simulator and replay data
+are excluded. The local detector uses a circling Viterbi model similar to
+the RecentClimbs Python IGC detector: turns above 6 degrees/second, speed
+above 15~km/h, circling longer than 60 seconds and positive altitude gain.
+Only completed climbs are shared, after a five-minute classification
+lookahead. Thus a three-minute upload interval does not mean a climb
+appears three minutes after entering a thermal.
+
+Detection and queue storage run on an idle-priority worker. Detection and
+new uploads are deferred when the available CPU-load estimate reaches
+80\%. Transfers use the asynchronous network service, over mobile data or
+Wi-Fi. Failed uploads are retried at the selected interval. Summaries are
+saved atomically and survive restarts; they are retained for 24 hours and
+expired entries are logged. The queue is bounded to 512 summaries per
+folder; capacity errors are logged, not acknowledged as successful uploads.
+Only a matching receiver acknowledgement marks a summary delivered.
+Retries use stable event IDs so they do not create duplicate climbs.
+
+The shared information comprises climb position, UTC start/end times,
+GPS altitudes, average climb rate, public identity and installation/event IDs.
+No full flight track is uploaded. Raw fixes remain in bounded memory
+(up to 7,200 samples) and an unfinished climb is lost on exit.
+Anyone able to read the shared folder can see the summaries.
+Keep the device clock correct.
+
+\begin{description}
+\item[Collaborative flight] Explicitly opt into collecting and sharing
+  summaries and displaying the group's climbs. Switching off stops collection
+  and transfer and removes only collaborative waypoints, but keeps pending
+  summaries for their retention period. Recent climbs remains independent:
+  either service, both, or neither may be enabled.
+\item[Shared folder link] Google Drive folder share link. Each folder
+  has a separate local queue, so changing groups does not send the previous
+  group's pending summaries to the new group.
+\item[Upload service URL] Deployed Apps Script HTTPS web app URL ending
+  in \texttt{/exec}. The receiver must execute as its owner and permit
+  access by `Anyone', with authentication by the shared upload secret.
+\item[Upload secret] Matching receiver secret of 32--256 characters.
+  It is masked in the dialog but stored unencrypted in the profile.
+  Do not share a profile containing this secret.
+\item[Public identity] Shared name of 1--10 Unicode characters, initially
+  the pilot name plus glider registration truncated to ten characters
+  (or \texttt{CF} if both are empty). Edit it before sharing if you do not
+  want to publish your pilot name. A saved choice is not overwritten by
+  later pilot or aircraft changes. Each queued climb retains its identity;
+  edits affect newly detected climbs only.
+\item[Upload interval] Minimum time between attempts, from 1 to 60
+  minutes, in one-minute steps; three minutes by default.
+\item[Log transfers] Optional diagnostic logging of counts, successful
+  acknowledgements and CPU deferrals. Errors and expiry are always logged.
+  Secrets and request bodies are not logged.
+\item[CUP file link] Public file share link of the group's
+  \texttt{climbs.cup}, not the folder or upload endpoint. Leave blank to
+  continue sharing without displaying group climbs. This is separate from
+  the file link in Services / Recent climbs; existing installations must
+  configure this new field.
+\item[Update interval] Download frequency, 1--60 minutes, three by default.
+  This is independent of the upload interval and Recent climbs.
+\item[Maximum age] Oldest collaborative observation to display,
+  15--1,440 minutes in steps of 15; 60 by default.
+\item[Minimum climb rate] Minimum average rate, zero by default (no filter).
+  With altitude in metres, 0--20~m/s in steps of 0.1; with altitude in feet,
+  0--4,000~ft/min in steps of 20. The physical threshold is preserved when
+  changing units.
+\end{description}
+
+The receiver creates \texttt{climbs.cup} and a deduplication index in the
+folder. CUP names and codes combine the public identity and a five-character
+uppercase alphanumeric hash of stable event fields, including UTC times.
+Long internal IDs remain in the index for reliable deduplication; short-name
+collisions are unlikely but possible. Upgrade and redeploy the supplied
+receiver to enable these names; upgrading XCSoar alone is insufficient.
+Older anonymous observations receive a \texttt{CF} prefix.
+To display the group climbs, share the CUP \emph{file} for public
+link access and configure its file share link in Services / Collaborative flight.
+Each service has its own cache, refresh interval, age and minimum climb-rate
+filters. Cached observations expire and filters update even offline, without
+affecting the other service. Changing a file link clears that service's previous
+source immediately. Downloaded waypoints are never saved to waypoint files.
+Pointing both services at the same file deliberately creates separate entries;
+normally Recent climbs uses the OGN source and Collaborative flight the group
+source.
+Waypoint icons and labels, including recent and collaborative climbs, are
+drawn above snail trails so recorded tracks do not obscure them. Aircraft
+and traffic symbols remain above the waypoints.
+The receiver retains up to 4,096 group summaries for 24 hours, pruning on
+uploads; Google Apps Script and Drive quotas apply. It is intended for a
+small group. Deployment and a first real upload require your Google
+account and cannot be completed by XCSoar itself.
 
 
 %%%%%%%%%%%%%%%%%%

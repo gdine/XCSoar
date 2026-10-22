@@ -793,6 +793,12 @@ XCSOAR_SOURCES += \
 
 XCSOAR_SOURCES += \
 	$(SRC)/net/client/tim/Glue.cpp \
+	$(SRC)/RecentClimbs/Update.cpp \
+	$(SRC)/RecentClimbs/Glue.cpp \
+	$(SRC)/CollaborativeFlight/Core.cpp \
+	$(SRC)/CollaborativeFlight/Glue.cpp \
+	$(SRC)/Dialogs/Settings/Panels/CollaborativeFlightConfigPanel.cpp \
+	$(SRC)/Dialogs/Settings/Panels/RecentClimbsConfigPanel.cpp \
 	$(SRC)/Tracking/SkyLines/Client.cpp \
 	$(SRC)/Tracking/SkyLines/Assemble.cpp \
 	$(SRC)/Tracking/SkyLines/Key.cpp \

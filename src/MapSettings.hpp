@@ -15,6 +15,7 @@
 #include <type_traits>
 
 #include <cstdint>
+#include <chrono>
 
 enum class AircraftSymbol : uint8_t {
   SIMPLE,
@@ -146,6 +147,12 @@ struct MapSettings {
   MapShiftBias map_shift_bias;
 
   bool show_flarm_on_map;
+
+  /** Draw traffic histories using the glider's trail style and length. */
+  bool show_traffic_trails;
+
+  /** Retain each traffic trail after its last received frame. */
+  std::chrono::seconds traffic_trail_timeout;
 
   /**
    * This is an inverted copy of TrafficSettings::enable_gauge.  The

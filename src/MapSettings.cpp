@@ -2,6 +2,7 @@
 // Copyright The XCSoar Project
 
 #include "MapSettings.hpp"
+#include "Computer/TrafficTraceComputer.hpp"
 
 void
 MapItemListSettings::SetDefaults() noexcept
@@ -40,6 +41,8 @@ MapSettings::SetDefaults() noexcept
   circling_scale = 0.5;
   cruise_scale = 1 / 60.;
   show_flarm_on_map = true;
+  show_traffic_trails = false;
+  traffic_trail_timeout = TrafficTraceComputer::DEFAULT_RETENTION;
   show_flarm_alarm_level = true;
   fade_traffic = true;
   show_thermal_profile = true;

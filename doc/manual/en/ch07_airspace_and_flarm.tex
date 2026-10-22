@@ -353,6 +353,54 @@ in a file.  See Section~\ref{sec:flarm-ident-file} for details on this
 file format.  Aircraft with the FLARM privacy flag set will not have
 any identification displayed.
 
+\subsection*{Traffic snail trails}
+
+Enable {\bf Traffic trails} in {\bf Gauges / Traffic} to show the
+received paths of traffic on the main map.  This is off by default.
+Trails follow the glider's trail length, colour scheme, line or dot
+style and width scaling.  Turning the glider trail off also hides
+traffic trails.  Traffic symbols and labels remain above the trails,
+and their colours still indicate collision risk.
+
+Vario colours represent the target's reported climb rate, or the
+change in its absolute altitude when climb rate is not reported.
+Repeated online reports with unchanged position and altitude do not
+add zero-climb samples.  In the default vario colour scheme, yellow
+indicates near-zero climb, while climbing and descending sections
+use the corresponding colours from the glider's trail scheme.
+A reported zero climb rate is used as supplied, even if altitude changes.
+Feeds that always report zero will therefore show only the near-zero
+colour; they must provide actual climb rates, or omit the climb field
+when it is unknown, to enable meaningful vario colouring.
+This is not netto vario and does not measure the surrounding air's lift.
+Altitude colouring uses the target's absolute altitude.
+Traffic trails are ground-referenced: the glider's wind-drift setting
+does not move them.
+
+Only targets with a valid position and altitude can have a trail.
+Targets requesting no tracking and targets without position are
+excluded.  Online traffic follows its existing map visibility setting.
+When reception stops, the visible trail is frozen and remains on the map
+for the configured {\bf Traffic trail timeout} after that target's last
+received report, even after its traffic symbol disappears.  The default
+is one hour; choose from five minutes to 24 hours in five-minute steps
+below {\bf Traffic trails} in {\bf Gauges / Traffic}.
+A new report resets this target's timeout.
+The timeout uses elapsed time even when GPS reception or traffic
+updates stop; replay uses its replay clock.
+After a reception gap of more than 30 seconds, a new trail segment starts
+without joining across the gap; earlier segments are retained.
+The shared trail length is measured back from each target's last report,
+so a lost target's trail does not age out sooner under {\bf Short} or
+{\bf Long}.  Turning trails off still hides these retained paths.
+History is held in memory, not saved to a flight log, and is cleared
+when the flight is reset or replay time moves backwards.  Each target
+keeps at most 1024 fixes, at least two seconds apart, with older fixes
+simplified as needed; {\bf Full} shows all retained history rather than
+an unlimited recording.  Memory is bounded to 356 targets and 16 separate
+segments per target; the oldest histories or segments may be removed
+earlier if these limits are reached.
+
 
 \subsection*{FLARM radar}
 

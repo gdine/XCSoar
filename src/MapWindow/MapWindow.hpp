@@ -144,6 +144,8 @@ protected:
   AirspaceLabelRenderer airspace_label_renderer;
 
   TrailRenderer trail_renderer;
+  std::map<std::pair<FlarmId, TracePoint::Time>,
+           TrailRenderer> traffic_trail_renderers;
   TurnBackMarkerRenderer turn_back_marker_renderer;
 
   ProtectedTaskManager *task = nullptr;
@@ -387,6 +389,7 @@ protected:
   void DrawGlideThroughTerrain(Canvas &canvas) const noexcept;
   void DrawTerrainAbove(Canvas &canvas) noexcept;
   void DrawFLARMTraffic(Canvas &canvas, PixelPoint aircraft_pos) const noexcept;
+  void DrawTrafficTrails(Canvas &canvas) noexcept;
   void DrawGLinkTraffic(Canvas &canvas) const noexcept;
 
   // thread, main functions

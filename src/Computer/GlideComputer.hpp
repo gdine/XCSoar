@@ -10,6 +10,7 @@
 #include "StatsComputer.hpp"
 #include "TaskComputer.hpp"
 #include "LogComputer.hpp"
+#include "TrafficTraceComputer.hpp"
 #include "WarningComputer.hpp"
 #include "CuComputer.hpp"
 #include "Engine/Contest/Solvers/Retrospective.hpp"
@@ -33,6 +34,7 @@ class GlideComputer : public GlideComputerBlackboard
   StatsComputer stats_computer;
   LogComputer log_computer;
   CuComputer cu_computer;
+  TrafficTraceComputer traffic_trace_computer;
 
   ConditionMonitors condition_monitors;
   MoreConditionMonitors idle_condition_monitors;
@@ -78,6 +80,7 @@ public:
 
   void Expire() {
     SetCalculated().Expire(Basic().clock);
+    traffic_trace_computer.Update(Basic());
   }
 
   /**
@@ -123,6 +126,14 @@ public:
 
   TraceComputer &GetTraceComputer() noexcept {
     return task_computer.GetTraceComputer();
+  }
+
+  const TrafficTraceComputer &GetTrafficTraceComputer() const noexcept {
+    return traffic_trace_computer;
+  }
+
+  TrafficTraceComputer &GetTrafficTraceComputer() noexcept {
+    return traffic_trace_computer;
   }
 
   const ProtectedTaskManager &GetProtectedTaskManager() const {

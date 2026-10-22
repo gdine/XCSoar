@@ -10,9 +10,12 @@
 #include "Renderer/TrafficRenderer.hpp"
 #include "FLARM/Friends.hpp"
 #include "MapSettings.hpp"
+#include "Computer/GlideComputer.hpp"
+#include "Look/MapLook.hpp"
 #include "util/StringCompare.hxx"
 
 #include <cassert>
+#include <set>
 
 static void
 DrawFlarmTraffic(Canvas &canvas, const WindowProjection &projection,
@@ -71,6 +74,64 @@ DrawFlarmTraffic(Canvas &canvas, const WindowProjection &projection,
   TrafficRenderer::Draw(canvas, look, fading, traffic,
                         traffic.track - projection.GetScreenAngle(),
                         color, sc);
+}
+
+void
+MapWindow::DrawTrafficTrails(Canvas &canvas) noexcept
+{
+  const auto &settings = GetMapSettings();
+  if (!settings.show_flarm_on_map || !settings.show_traffic_trails ||
+      settings.trail.length == TrailSettings::Length::OFF ||
+      glide_computer == nullptr) {
+    traffic_trail_renderers.clear();
+    return;
+  }
+
+  if (render_projection.GetMapScale() > 7300)
+    return;
+
+  TimeStamp min_time{};
+  switch (settings.trail.length) {
+  case TrailSettings::Length::SHORT:
+    min_time = std::max(Basic().time - std::chrono::minutes{10}, TimeStamp{});
+    break;
+  case TrailSettings::Length::LONG:
+    min_time = std::max(Basic().time - std::chrono::hours{1}, TimeStamp{});
+    break;
+  case TrailSettings::Length::FULL:
+  case TrailSettings::Length::OFF:
+    break;
+  }
+
+  auto query =
+    TrailRenderer::MakeTrailQuery(min_time, render_projection);
+  std::vector<TrafficTraceComputer::Snapshot> snapshots;
+  const auto now = Basic().gps.replay
+    ? Basic().clock
+    : TimeStamp{std::chrono::steady_clock::now().time_since_epoch()};
+  glide_computer->GetTrafficTraceComputer().LockedCopyAll(query, now,
+                                                        snapshots);
+  std::erase_if(snapshots, [&settings](const auto &snapshot) {
+    return FlarmTraffic::IsInjectedSource(snapshot.source) &&
+      settings.online_traffic_map_mode == DisplayOnlineTrafficMapMode::OFF;
+  });
+
+  std::set<std::pair<FlarmId, TracePoint::Time>> visible_segments;
+  for (const auto &snapshot : snapshots)
+    visible_segments.emplace(snapshot.id, snapshot.start_time);
+
+  std::erase_if(traffic_trail_renderers, [&visible_segments](const auto &item) {
+    return !visible_segments.contains(item.first);
+  });
+
+  for (const auto &snapshot : snapshots) {
+    auto &renderer =
+      traffic_trail_renderers.try_emplace(
+        std::pair{snapshot.id, snapshot.start_time}, look.trail).first->second;
+    query.min_time = snapshot.min_time;
+    renderer.Draw(canvas, snapshot.points, render_projection, query,
+                  settings.trail);
+  }
 }
 
 /**

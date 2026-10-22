@@ -18,6 +18,8 @@
 #endif
 #ifdef HAVE_HTTP
 #include "Weather/xctherm/XCThermDownloadGlue.hpp"
+#include "RecentClimbs/Glue.hpp"
+#include "CollaborativeFlight/Glue.hpp"
 #ifdef HAVE_WEATHER_OVERLAY
 #include "Weather/OPERA/RadarPageOverlay.hpp"
 #include "Weather/EUMETView/SatellitePageOverlay.hpp"
@@ -44,6 +46,10 @@ NetComponents::NetComponents(EventLoop &event_loop, CurlGlobal &curl,
   ,edl(new EDL::DownloadGlue(curl))
 # endif
   ,xctherm_download(new XCThermDownloadGlue(curl))
+  ,recent_climbs(new RecentClimbsGlue(curl))
+  ,collaborative_climbs(new RecentClimbsGlue(
+    curl, RecentClimbsGlue::Source::COLLABORATIVE))
+  ,collaborative_flight(new CollaborativeFlight::Glue(curl))
 # ifdef HAVE_WEATHER_OVERLAY
   ,opera_radar(new RadarDownloadGlue(curl))
   ,eumetview_satellite(new SatelliteDownloadGlue(curl))
@@ -96,6 +102,15 @@ NetComponents::BeginShutdown() noexcept
 
   if (xctherm_download != nullptr)
     xctherm_download->BeginShutdown();
+
+  if (recent_climbs != nullptr)
+    recent_climbs->BeginShutdown();
+
+  if (collaborative_climbs != nullptr)
+    collaborative_climbs->BeginShutdown();
+
+  if (collaborative_flight != nullptr)
+    collaborative_flight->BeginShutdown();
 
 # ifdef HAVE_WEATHER_OVERLAY
   if (opera_radar != nullptr)

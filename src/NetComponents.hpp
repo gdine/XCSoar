@@ -20,6 +20,8 @@ class NOTAMGlue;
 namespace EDL { class DownloadGlue; }
 #endif
 class XCThermDownloadGlue;
+class RecentClimbsGlue;
+namespace CollaborativeFlight { class Glue; }
 #ifdef HAVE_WEATHER_OVERLAY
 class RadarDownloadGlue;
 class SatelliteDownloadGlue;
@@ -47,6 +49,9 @@ struct NetComponents {
   const std::unique_ptr<EDL::DownloadGlue> edl;
 # endif
   const std::unique_ptr<XCThermDownloadGlue> xctherm_download;
+  const std::unique_ptr<RecentClimbsGlue> recent_climbs;
+  const std::unique_ptr<RecentClimbsGlue> collaborative_climbs;
+  const std::unique_ptr<CollaborativeFlight::Glue> collaborative_flight;
 # ifdef HAVE_WEATHER_OVERLAY
   const std::unique_ptr<RadarDownloadGlue> opera_radar;
   const std::unique_ptr<SatelliteDownloadGlue> eumetview_satellite;

@@ -65,10 +65,12 @@
 #endif
 #ifdef HAVE_TRACKING
 #include "Panels/CloudConfigPanel.hpp"
+#include "Panels/RecentClimbsConfigPanel.hpp"
 #endif
 
 #ifdef HAVE_HTTP
 #include "Panels/WeatherConfigPanel.hpp"
+#include "Panels/CollaborativeFlightConfigPanel.hpp"
 #endif
 #include "Panels/RaspConfigPanel.hpp"
 #ifdef HAVE_PCMET
@@ -158,6 +160,10 @@ static constexpr TabMenuPage weather_pages[] = {
 static constexpr TabMenuPage online_pages[] = {
 #ifdef HAVE_LIVETRACK24
   { "LiveTrack24", CreateLiveTrack24ConfigPanel },
+#endif
+#ifdef HAVE_HTTP
+  { N_("Recent climbs"), CreateRecentClimbsConfigPanel },
+  { N_("Collaborative flight"), CreateCollaborativeFlightConfigPanel },
 #endif
 #ifdef HAVE_SKYLINES_TRACKING
   { "SkyLines", CreateSkyLinesConfigPanel },

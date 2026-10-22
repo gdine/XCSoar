@@ -1122,7 +1122,7 @@ TrailRenderer::Draw(Canvas &canvas, const TraceComputer &trace_computer,
   if (!basic.location_available || !calculated.wind_available)
     enable_traildrift = false;
 
-  GeoPoint traildrift;
+  GeoPoint traildrift{};
   if (enable_traildrift) {
     GeoPoint tp1 = FindLatitudeLongitude(basic.location,
                                          calculated.wind.bearing,
@@ -1130,6 +1130,50 @@ TrailRenderer::Draw(Canvas &canvas, const TraceComputer &trace_computer,
     traildrift = basic.location - tp1;
   }
 
+  DrawLoadedTrace(canvas, projection, query, basic.time,
+                  enable_traildrift, traildrift, settings, &basic, pos);
+}
+
+void
+TrailRenderer::Draw(Canvas &canvas, const TracePointVector &snapshot,
+                    const WindowProjection &projection,
+                    const TrailQuery &query,
+                    const TrailSettings &settings) noexcept
+{
+  if (settings.length == TrailSettings::Length::OFF)
+    return;
+
+  const bool unchanged = trace.size() == snapshot.size() &&
+    std::equal(trace.begin(), trace.end(), snapshot.begin(),
+      [](const TracePoint &a, const TracePoint &b) {
+        return a.GetTime() == b.GetTime() &&
+          a.GetLocation() == b.GetLocation() &&
+          a.GetAltitude() == b.GetAltitude() &&
+          a.GetVario() == b.GetVario();
+      });
+  if (!unchanged) {
+    trace = snapshot;
+    ++synced_modify_serial;
+  }
+
+  if (trace.empty())
+    return;
+
+  const TimeStamp now{
+    std::chrono::duration_cast<FloatDuration>(trace.back().GetTime())};
+  DrawLoadedTrace(canvas, projection, query, now, false, GeoPoint{},
+                  settings);
+}
+
+void
+TrailRenderer::DrawLoadedTrace(Canvas &canvas,
+                               const WindowProjection &projection,
+                               const TrailQuery &query, TimeStamp now,
+                               bool enable_traildrift,
+                               const GeoPoint &traildrift,
+                               const TrailSettings &settings,
+                               const NMEAInfo *basic, PixelPoint pos) noexcept
+{
   const auto minmax = GetMinMax(settings.type, trace);
   const ColorScale color_scale =
     ColorScale::FromMinMax(settings.type, minmax.first, minmax.second);
@@ -1148,7 +1192,7 @@ TrailRenderer::Draw(Canvas &canvas, const TraceComputer &trace_computer,
 
   if (!stable_drift_time.IsDefined() || append_changed || modify_changed ||
       leg_count > segment_cache.size())
-    stable_drift_time = basic.time;
+    stable_drift_time = now;
 
   valid_points.clear();
   valid_points.reserve(trace.size());
@@ -1232,9 +1276,10 @@ TrailRenderer::Draw(Canvas &canvas, const TraceComputer &trace_computer,
   DrawCachedSegments(canvas, projection, settings.type, scaled_trail,
                      enable_traildrift, traildrift, stable_drift_time,
                      segment_cache);
-  DrawOpenLeg(canvas, settings, color_scale, scaled_trail,
-              use_smoothing, num_segments, first_smoothed_point,
-              basic, pos);
+  if (basic != nullptr)
+    DrawOpenLeg(canvas, settings, color_scale, scaled_trail,
+                use_smoothing, num_segments, first_smoothed_point,
+                *basic, pos);
 }
 
 void

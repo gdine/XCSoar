@@ -87,6 +87,8 @@ ComputerSettings::SetDefaults()
   radio.SetDefaults();
   transponder.SetDefaults();
   weglide.SetDefaults();
+  recent_climbs.SetDefaults();
+  collaborative_flight.SetDefaults();
 }
 
 RoughTimeDelta

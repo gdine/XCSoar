@@ -197,12 +197,13 @@ TargetMapWindow::OnPaintBuffer(Canvas &canvas) noexcept
   canvas.FadeToWhite(0x80);
 #endif
 
-  // Render task, waypoints
+  // Render task
   DrawTask(canvas);
-  DrawWaypoints(canvas);
 
   // Render the snail trail
   RenderTrail(canvas);
+
+  DrawWaypoints(canvas);
 
   // Render topography on top of airspace, to keep the text readable
   RenderTopographyLabels(canvas);

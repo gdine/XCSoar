@@ -267,19 +267,21 @@ MapWindow::Render(Canvas &canvas, const PixelRect &rc) noexcept
 
   //////////////////////////////////////////////// task
 
-  // Render task, waypoints
+  // Render task
   draw_sw.Mark("DrawContest");
   DrawContest(canvas);
 
   draw_sw.Mark("DrawTask");
   DrawTask(canvas);
 
-  draw_sw.Mark("DrawWaypoints");
-  DrawWaypoints(canvas);
-
   //////////////////////////////////////////////// aircraft level items
   // Render the snail trail
+  DrawTrafficTrails(canvas);
   RenderTrail(canvas, aircraft_pos);
+
+  // Keep waypoint symbols and labels visible over the trails.
+  draw_sw.Mark("DrawWaypoints");
+  DrawWaypoints(canvas);
 
   DrawWaves(canvas);
 

@@ -11,11 +11,14 @@
 #include "Language/Language.hpp"
 #include "UIGlobals.hpp"
 #include "MainWindow.hpp"
+#include "Computer/TrafficTraceComputer.hpp"
 
 enum ControlIndex {
   TrafficRadar,
   AutoCloseFlarmDialog,
   NoPositionTargetDistanceRing,
+  TrafficTrails,
+  TrafficTrailTimeout,
 };
 
 /** Not a GaugeLocation; used only in this panel's Off/position enum. */
@@ -81,6 +84,8 @@ TrafficConfigPanel::OnModified(DataField &df) noexcept
   if (IsDataField(TrafficRadar, df)) {
     const DataFieldEnum &dfe = (const DataFieldEnum &)df;
     SetRadarEnabled(dfe.GetValue() != TRAFFIC_RADAR_OFF);
+  } else if (IsDataField(TrafficTrails, df)) {
+    SetRowEnabled(TrafficTrailTimeout, GetValueBoolean(TrafficTrails));
   }
 }
 
@@ -113,6 +118,23 @@ TrafficConfigPanel::Prepare(ContainerWindow &parent,
   AddBoolean(_("No position target"),
              _("This parameter enables or disables the No Position Target Distance Ring in Flarm Radar"),
              ui_settings.traffic.no_position_target_distance_ring);
+
+  AddBoolean(_("Traffic trails"),
+             _("Draw traffic snail trails on the main map using the "
+               "glider's trail length, colour and width settings. "
+               "Traffic colours use climb rate, not netto vario. "
+               "Targets requesting no tracking are excluded."),
+             ui_settings.map.show_traffic_trails, this);
+
+  AddDuration(_("Traffic trail timeout"),
+              _("How long traffic trails remain after the target's last "
+                "received frame. Each new frame resets the timeout, even "
+                "without GPS reception."),
+              TrafficTraceComputer::MIN_RETENTION,
+              TrafficTraceComputer::MAX_RETENTION,
+              TrafficTraceComputer::RETENTION_STEP,
+              ui_settings.map.traffic_trail_timeout);
+  SetRowEnabled(TrafficTrailTimeout, ui_settings.map.show_traffic_trails);
 
   SetRadarEnabled(ui_settings.traffic.enable_gauge);
 }
@@ -150,6 +172,11 @@ TrafficConfigPanel::Save(bool &_changed) noexcept
   changed |= SaveValue(NoPositionTargetDistanceRing,
                        ProfileKeys::NoPositionTargetDistanceRing,
                        ui_settings.traffic.no_position_target_distance_ring);
+
+  changed |= SaveValue(TrafficTrails, ProfileKeys::TrafficTrails,
+                       ui_settings.map.show_traffic_trails);
+  changed |= SaveValue(TrafficTrailTimeout, ProfileKeys::TrafficTrailTimeout,
+                       ui_settings.map.traffic_trail_timeout);
 
   _changed |= changed;
 

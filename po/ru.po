@@ -11294,3 +11294,129 @@ msgstr ""
 #, no-c-format
 msgid "The day's maximum ground temperature. A dry adiabat from it against the outside air temperature measured while climbing gives the estimated thermal ceiling; the cloud base needs a humidity probe as well. Both are drawn on the temperature trace page of the Analysis dialog, once the glider has climbed through the layer."
 msgstr ""
+
+msgid "Traffic trails"
+msgstr ""
+
+msgid "Draw traffic snail trails on the main map using the glider's trail length, colour and width settings. Traffic colours use climb rate, not netto vario. Targets requesting no tracking are excluded."
+msgstr ""
+
+msgid "Traffic trail timeout"
+msgstr ""
+
+msgid "How long traffic trails remain after the target's last received frame. Each new frame resets the timeout, even without GPS reception."
+msgstr ""
+
+#, no-c-format
+msgid "Recent climbs"
+msgstr ""
+
+msgid "Periodically download a CUP file of recently detected climbs and show them as temporary waypoints. Climbs no longer listed in the file are removed. These waypoints are never saved to your waypoint files."
+msgstr ""
+
+msgid "CUP file link"
+msgstr ""
+
+msgid "Google Drive share link of the CUP file (shared with \"Anyone with the link\"), or a direct HTTP(S) URL."
+msgstr ""
+
+msgid "Update interval"
+msgstr ""
+
+msgid "How often the CUP file is downloaded."
+msgstr ""
+
+msgid "Maximum age"
+msgstr ""
+
+msgid "Maximum climb age in minutes. Climbs without a valid observation time are hidden."
+msgstr ""
+
+msgid "Minimum climb rate"
+msgstr ""
+
+msgid "Minimum average climb rate to display. Zero disables this filter. With a positive minimum, climbs without a valid climb rate are hidden. Units follow the altitude setting."
+msgstr ""
+
+msgid "Collaborative flight"
+msgstr ""
+
+msgid ""
+"Share your detected climb locations, UTC times, altitudes and climb rates "
+"with the configured group. No full track is uploaded. Offline summaries are "
+"retained for 24 hours."
+msgstr ""
+
+msgid "Shared folder link"
+msgstr ""
+
+msgid ""
+"Google Drive folder share link. Deploy the supplied Google Apps Script "
+"receiver for this folder before enabling."
+msgstr ""
+
+msgid "Upload service URL"
+msgstr ""
+
+msgid "Deployed Google Apps Script web app HTTPS URL ending in /exec."
+msgstr ""
+
+msgid "Upload secret"
+msgstr ""
+
+msgid ""
+"Shared receiver secret, 32 to 256 characters. Stored in your profile; do not"
+" share the profile or the secret."
+msgstr ""
+
+msgid "Upload interval"
+msgstr ""
+
+msgid "Minimum time between upload attempts, including retries."
+msgstr ""
+
+msgid "Log transfers"
+msgstr ""
+
+msgid ""
+"Log upload counts, acknowledgements and CPU deferrals. Errors are always "
+"logged. Secrets are never logged."
+msgstr ""
+
+msgid ""
+"Enter a valid Google Drive folder link, Apps Script /exec URL and an upload "
+"secret of 32 to 256 characters."
+msgstr ""
+
+msgid ""
+"Share your detected climbs and display the group's climbs independently of "
+"Recent climbs. Locations, UTC times, altitudes and climb rates are shared, "
+"not full tracks. Offline summaries are retained for 24 hours."
+msgstr ""
+
+msgid ""
+"Public file share link of the collaborative group's climbs.cup, not the "
+"folder link. Leave blank to share without displaying. The Recent climbs "
+"service keeps its own separate file link."
+msgstr ""
+
+msgid ""
+"Share your detected climbs and display the group's climbs independently of "
+"Recent climbs. Locations, UTC times, altitudes, climb rates and your public "
+"identity are shared, not full tracks. Offline summaries are retained for 24 "
+"hours."
+msgstr ""
+
+msgid "Public identity"
+msgstr ""
+
+msgid ""
+"Name shared with the group, 1 to 10 Unicode characters. Initially your pilot"
+" name and glider registration, truncated to 10 characters. Climb names add a"
+" five-character hash. Changing this affects only newly detected climbs."
+msgstr ""
+
+msgid ""
+"Enter a public identity of 1 to 10 Unicode characters without control "
+"characters."
+msgstr ""

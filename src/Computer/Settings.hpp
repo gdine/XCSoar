@@ -22,6 +22,8 @@
 #include "Radio/TransponderCode.hpp"
 #include "Radio/TransponderMode.hpp"
 #include "net/client/WeGlide/Settings.hpp"
+#include "RecentClimbs/Settings.hpp"
+#include "CollaborativeFlight/Settings.hpp"
 #include "util/StaticString.hxx"
 
 #include <cstdint>
@@ -286,6 +288,9 @@ struct ComputerSettings {
   LoggerSettings logger;
 
   WeGlideSettings weglide;
+
+  RecentClimbsSettings recent_climbs;
+  CollaborativeFlightSettings collaborative_flight;
 
 #ifdef HAVE_TRACKING
   TrackingSettings tracking;

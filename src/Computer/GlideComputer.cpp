@@ -39,6 +39,7 @@ GlideComputer::ResetFlight(const bool full)
   stats_computer.ResetFlight(full);
   log_computer.Reset();
   retrospective.Reset();
+  traffic_trace_computer.Reset();
 
   cu_computer.Reset();
   warning_computer.Reset();
@@ -64,6 +65,8 @@ GlideComputer::ProcessGPS(bool force)
           AirDensityRatio(*altitude));
 
   const ComputerSettings &settings = GetComputerSettings();
+
+  traffic_trace_computer.Update(basic);
 
   const bool last_flying = calculated.flight.flying;
 

@@ -23,6 +23,7 @@ LIBCOMPUTER_SOURCES = \
 	$(SRC)/Computer/Wind/Computer.cpp \
 	$(SRC)/Computer/ContestComputer.cpp \
 	$(SRC)/Computer/TraceComputer.cpp \
+	$(SRC)/Computer/TrafficTraceComputer.cpp \
 	$(SRC)/Computer/WarningComputer.cpp \
 	$(SRC)/Computer/ThermalRecency.cpp \
 	$(SRC)/Computer/ThermalLocator.cpp \

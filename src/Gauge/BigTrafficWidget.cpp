@@ -55,7 +55,7 @@ protected:
   bool init_defaults = false;
   unsigned zoom = 3;
   unsigned last_zoom;
-  static constexpr unsigned num_zoom_options = 5;
+  static constexpr unsigned num_zoom_options = 10;
   Angle task_direction = Angle::Degrees(-1);
   TrackingGestureManager gestures;
 
@@ -183,6 +183,16 @@ FlarmTrafficControl::GetZoomDistance(unsigned zoom)
     return 5000;
   case 5:
     return 10000;
+  case 6:
+    return 20000;
+  case 7:
+    return 30000;
+  case 8:
+    return 40000;
+  case 9:
+    return 50000;
+  case 10:
+    return 60000;
   case 3:
   default:
     return 2000;

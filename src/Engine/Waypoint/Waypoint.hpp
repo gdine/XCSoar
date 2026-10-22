@@ -12,6 +12,8 @@
 
 #include <string>
 #include <forward_list>
+#include <chrono>
+#include <optional>
 
 class FlatProjection;
 
@@ -88,6 +90,18 @@ struct Waypoint {
   std::string comment;
   /** Airfield or additional (long) details */
   std::string details;
+
+  struct RecentClimb {
+    std::optional<std::chrono::system_clock::time_point> observed;
+    /** Average climb rate in m/s, absent if unavailable or invalid. */
+    std::optional<double> lift_rate;
+
+    bool operator==(const RecentClimb &) const noexcept = default;
+  };
+
+  /** Present only for temporary waypoints from the recent-climbs service. */
+  std::optional<RecentClimb> recent_climb;
+
   /** Additional files to be displayed in the WayointDetails dialog */
   std::forward_list<std::string> files_embed;
 #ifdef HAVE_RUN_FILE

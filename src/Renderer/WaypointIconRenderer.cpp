@@ -9,6 +9,8 @@
 #include "WaypointRendererSettings.hpp"
 #include "Engine/Waypoint/Waypoint.hpp"
 #include "util/Macros.hpp"
+#include "ui/canvas/Ramp.hpp"
+#include "Asset.hpp"
 
 #include <algorithm>
 
@@ -22,6 +24,27 @@ MapIconTargetHeight(const MaskedIcon &icon, unsigned percent) noexcept
 
   const unsigned scaled = (h * percent + 50U) / 100U;
   return std::max(1U, scaled);
+}
+
+static Color
+GetRecentClimbColor(double lift_rate) noexcept
+{
+  /* Meteo-Parapente-style thermal velocity scale, in hundredths of m/s. */
+  static constexpr ColorRampEntry colors[] = {
+    {  0, {255, 255, 255}},
+    {100, {255, 255,   0}},
+    {200, {  0, 255,   0}},
+    {300, {  0, 255, 255}},
+    {400, {  0,   0, 255}},
+    {500, {255,   0, 255}},
+    {600, {255,   0,   0}},
+    {700, {128,   0,   0}},
+  };
+  static constexpr ColorRamp ramp{
+    false, ARRAY_SIZE(colors), colors, nullptr,
+  };
+  return Color{ColorRampLookup(iround(std::clamp(lift_rate, 0., 7.) * 100),
+                              &ramp)};
 }
 
 [[gnu::pure]]
@@ -233,6 +256,18 @@ void
 WaypointIconRenderer::Draw(const Waypoint &waypoint, const PixelPoint &point,
                            WaypointReachability reachable, bool in_task) noexcept
 {
+  if (HasColors() && !IsDithered() &&
+      waypoint.type == Waypoint::Type::THERMAL_HOTSPOT &&
+      waypoint.recent_climb && waypoint.recent_climb->lift_rate) {
+    const auto &icon = GetWaypointIcon(look, waypoint, small_icons, in_task);
+    const unsigned height = icon_size > 0 ? icon_size :
+      MapIconTargetHeight(icon, (unsigned)settings.map_waypoint_icon_scale);
+    const Brush brush{GetRecentClimbColor(*waypoint.recent_climb->lift_rate)};
+    canvas.Select(brush);
+    canvas.SelectBlackPen();
+    canvas.DrawCircle(point, height / 2);
+  }
+
   if (waypoint.IsLandable())
     DrawLandable(waypoint, point, reachable);
   else if (icon_size > 0)
